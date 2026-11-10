@@ -15,6 +15,9 @@ context skills, a fictional example vault, and installation tooling.
   an agent framework, or automatic remote publishing.
 - Markdown records are authoritative. Lists and Bases views are derived; no
   database is required. Preserve stable IDs and timestamps on unchanged saves.
+- Keep natural-language use and checkpoint maintenance as the documented default
+  once standing instructions are configured. Implicit skill selection is not a
+  scheduler or a guaranteed shutdown hook; report those limits accurately.
 - Run the package validator after changing skills or metadata. When changing
   the installer, run its tests in temporary directories; do not install into a
   real user's skill directory as a test.

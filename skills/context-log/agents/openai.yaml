@@ -2,3 +2,5 @@ interface:
   display_name: "记录会话工作"
   short_description: "记录一次会话在多个项目中的阶段成果，并按更新时间查询工作记录"
   default_prompt: "使用 $context-log，把本次会话在相关项目中完成的工作整理成简短记录。"
+policy:
+  allow_implicit_invocation: true

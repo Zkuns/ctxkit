@@ -2,3 +2,5 @@ interface:
   display_name: "读取项目上下文"
   short_description: "按当前任务读取项目背景、状态和必要资料，让新会话接续工作"
   default_prompt: "使用 $context-read，读取指定项目的上下文，并继续我提出的任务。"
+policy:
+  allow_implicit_invocation: true

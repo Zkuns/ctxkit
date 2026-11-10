@@ -73,6 +73,9 @@ def validate_skill(folder):
     prompt = ui.get("default_prompt", "")
     if not isinstance(prompt, str) or f"${folder.name}" not in prompt:
         fail(ui_path, "default_prompt must mention this skill explicitly")
+    policy = metadata.get("policy", {})
+    if not isinstance(policy, dict) or policy.get("allow_implicit_invocation") is not True:
+        fail(ui_path, "automatic skill selection must be enabled")
 
 
 def validate_links(path):
