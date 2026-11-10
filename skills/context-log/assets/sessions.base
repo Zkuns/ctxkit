@@ -1,0 +1,39 @@
+filters:
+  and:
+    - file.inFolder("sessions")
+    - 'note.type == "session-record"'
+formulas:
+  record: 'file.asLink(note.title)'
+  updated: 'date(note.updated_at)'
+properties:
+  formula.record:
+    displayName: 工作记录
+  note.projects:
+    displayName: 关联项目
+  formula.updated:
+    displayName: 最近更新
+  note.source:
+    displayName: 来源
+views:
+  - type: table
+    name: 最近记录
+    order:
+      - formula.record
+      - note.projects
+      - formula.updated
+      - note.source
+    sort:
+      - property: formula.updated
+        direction: DESC
+  - type: table
+    name: 当前项目
+    filters:
+      and:
+        - note.projects.contains(this.file)
+    order:
+      - formula.record
+      - formula.updated
+      - note.source
+    sort:
+      - property: formula.updated
+        direction: DESC

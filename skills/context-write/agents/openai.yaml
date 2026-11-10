@@ -1,0 +1,4 @@
+interface:
+  display_name: "写回项目成果"
+  short_description: "将已确认的进展、决策和验证结果增量写回对应项目上下文文档"
+  default_prompt: "使用 $context-write，将本次工作的成果、证据和下一步写回项目上下文。"
