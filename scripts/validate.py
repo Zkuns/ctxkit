@@ -127,7 +127,7 @@ def main():
     for folder in folders:
         validate_skill(folder)
     docs = [ROOT / "README.md", ROOT / "README.en.md", ROOT / "AGENTS.md"]
-    for directory in ("skills", "examples", "tests"):
+    for directory in ("docs", "skills", "examples", "tests"):
         docs.extend((ROOT / directory).rglob("*.md"))
     for path in docs:
         validate_links(path)

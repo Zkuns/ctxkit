@@ -1,7 +1,8 @@
 # Working on CtxKit
 
-Read README.md before editing. This repository contains reusable project-level
-context skills, a fictional example vault, and installation tooling.
+Read README.md before editing, then docs/development.md for repository structure
+and checks. This repository contains reusable project-level context skills, a
+fictional example vault, and installation tooling.
 
 - Keep each skill independently installable. It must not depend on a sibling
   skill, a personal filesystem path, or an unbundled reference.
