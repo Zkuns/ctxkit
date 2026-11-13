@@ -26,6 +26,32 @@ CtxKit 希望把值得带到下一次工作的内容，留在自己的文件里�
 
 项目上下文帮助接着做，session 摘要帮助回头看。后续工作改变了项目状态，也不需要抹去此前发生过的事情。
 
+## 文件如何组织
+
+这个仓库的 `skills/` 保存工作方法，`docs/` 保存使用说明。你的真实资料单独放在上下文库里，例如：
+
+```text
+context/
+├── CONTEXT.md
+├── projects/
+│   ├── atlas/
+│   │   ├── PROJECT.md
+│   │   └── decisions/search.md
+│   └── beacon/
+│       └── PROJECT.md
+├── sessions/
+│   └── sess_<id>.md
+└── sessions.base
+```
+
+- **总导航**：`CONTEXT.md` 指向各项目入口，帮助 agent 找到本次需要的资料。
+- **项目目录**：每个项目一个目录，`PROJECT.md` 保存当前状态、关键决策和下一步。
+- **专题资料**：方案理由、验证记录等按需放在项目目录内，由项目主文档链接过去。
+- **会话摘要**：统一放在 `sessions/`，通过 `projects` 属性关联一个或多个项目。同一会话继续更新原文件，列表按 `updated_at` 倒序展示。
+- **可选视图**：`sessions.base` 是 Obsidian 的展示配置，实际记录仍在 Markdown 中。
+
+这是新库的示例布局，已有目录和文件名可以沿用；当前记录脚本使用库根目录的 `sessions/`。字段与更新规则见 [数据结构](docs/data-model.md)。
+
 ## 怎样融入日常工作
 
 一次配置好库的位置和维护约定后，正常提出任务即可：

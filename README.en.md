@@ -26,6 +26,32 @@ One conversation can cover several projects and continue updating the same summa
 
 Project context helps you continue work. Session summaries help you look back. A later change in project state does not have to erase what happened earlier.
 
+## How files are organized
+
+This repository keeps workflows in `skills/` and usage documentation in `docs/`. Your real data lives in a separate context library, for example:
+
+```text
+context/
+├── CONTEXT.md
+├── projects/
+│   ├── atlas/
+│   │   ├── PROJECT.md
+│   │   └── decisions/search.md
+│   └── beacon/
+│       └── PROJECT.md
+├── sessions/
+│   └── sess_<id>.md
+└── sessions.base
+```
+
+- **Library index:** `CONTEXT.md` links to project entry points so agents can find relevant context.
+- **Project folders:** Each project has its own directory. `PROJECT.md` holds its current state, key decisions, and next steps.
+- **Topic documents:** Detailed rationale and verification records live alongside the project notes, linked from the entry point.
+- **Session summaries:** Files in `sessions/` reference one or more projects through the `projects` property. The same conversation updates the same file; lists sort by `updated_at`, newest first.
+- **Optional view:** `sessions.base` configures an Obsidian view. The records themselves remain in Markdown.
+
+This is an example layout for a new library. Existing project layouts and file names can remain; the current record script uses `sessions/` at the library root. See the [data model — Chinese](docs/data-model.md) for fields and update rules.
+
 ## How it fits into your work
 
 Configure the library location and maintenance agreement once, then make ordinary requests:
