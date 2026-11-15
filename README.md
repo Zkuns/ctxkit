@@ -60,7 +60,7 @@ context/
 
 CtxKit 提供五个 skills，分别负责接入、读取、写回、整理和会话记录。agent 按需读取项目背景，在有实质成果的阶段更新项目与 session，不需要每次逐个点名调用。
 
-这些约定在 agent 处理任务时执行，需要客户端能加载 skills、读取常驻指令并访问本地文件。具体配置见 [使用指南](docs/usage.md)。
+技能采用 [Agent Skills](https://agentskills.io/specification) 格式，Codex 和 Claude Code 共用同一套技能与维护约定，分别配置安装和指令入口。自动维护在 agent 处理任务时执行，需要客户端能加载 skills、读取常驻指令并访问本地文件。具体配置见 [使用指南](docs/usage.md)。
 
 ## 为什么选择 Markdown
 

@@ -20,10 +20,11 @@ ctxkit/
 │   ├── context-setup/
 │   │   ├── SKILL.md
 │   │   ├── agents/openai.yaml
+│   │   ├── references/clients.md
 │   │   └── assets/
 │   │       ├── CONTEXT.template.md
 │   │       ├── PROJECT.template.md
-│   │       └── AGENTS.context.template.md
+│   │       └── maintenance.template.md
 │   ├── context-read/
 │   ├── context-write/
 │   ├── context-review/
@@ -58,13 +59,15 @@ license: MIT
 
 `name` 是与文件夹一致的稳定技能名，`description` 影响 agent 何时选择 skill。
 
-`agents/openai.yaml` 中的 `interface` 提供显示名称和示例提示语，`policy.allow_implicit_invocation: true` 允许隐式选择。`default_prompt` 里出现 `$skill-name` 是手动选择时的预填示例，不表示使用者必须输入它们。
+`SKILL.md` 使用 Agent Skills 通用格式；核心流程不依赖某个客户端的命令名、原生会话日志或 hooks。`agents/openai.yaml` 是 Codex 附加配置，其中 `interface` 提供显示名称和示例提示语，`policy.allow_implicit_invocation: true` 允许隐式选择。`default_prompt` 里出现 `$skill-name` 是手动选择时的预填示例，不表示使用者必须输入它们，也不控制 Claude Code 的调用。
+
+Claude Code 默认允许按描述自动选择技能；保持其 `disable-model-invocation` 未设置或为 `false`。客户端的目录、常驻指令与兼容细节集中在 `context-setup/references/clients.md`；一份 `maintenance.template.md` 定义共同的维护时机，不按客户端复制业务规则。hooks 如有需要作为可选适配，不成为核心技能依赖。
 
 这些配置属于 skill，与 [数据结构](data-model.md) 中的项目及 session 属性用途不同。
 
 README 介绍项目动机与核心概念；`docs/` 承载使用方式和格式细节。根目录的 `AGENTS.md` 是开发本仓库的约定，用户的自动维护规则使用 `context-setup/assets/` 下的独立模板。
 
-`context-log` 的脚本实现保存、读取、列表和视图生成；`references/cli.md` 说明命令接口。安装器只复制所选 skill，校验器检查元数据、隐式选择策略、文档链接与虚构样例。
+`context-log` 的脚本实现保存、读取、列表和视图生成；`references/cli.md` 说明命令接口。安装器用 `--client codex` / `--client claude-code` 选择默认个人目录，或通过 `--target` 接入自定义目录；两种方式互斥，只复制同一套所选 skills，不修改客户端指令。校验器检查元数据、隐式选择策略、文档链接与虚构样例。
 
 ## 文档排版
 
@@ -83,7 +86,7 @@ python3 -m venv .venv
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-结构检查覆盖 skill 元数据、自动选择策略、模板引用、文档链接和示例格式。脚本测试在临时目录覆盖安装、身份去重、跨天更新、无变化保存、时间排序与版本冲突。它们不能证明模型每次都会触发 skill，也不等于 Obsidian 界面实测或所有客户端兼容认证。[行为场景](../tests/scenarios.md) 用于补充实际客户端验证。
+结构检查覆盖 skill 元数据、自动选择策略、模板引用、文档链接和示例格式。脚本测试在临时目录覆盖两个客户端的安装入口、自定义目录、身份去重、跨天更新、无变化保存、时间排序与版本冲突。它们不能证明模型每次都会触发 skill，也不等于 Obsidian 界面实测或所有客户端兼容认证。[行为场景](../tests/scenarios.md) 用于补充实际客户端验证。
 
 欢迎提交具体的脱敏案例：输入、已有资料、实际文件变化和期望行为。保持普通文件可读、各 skill 可独立安装，优先解决实际使用中的问题。
 

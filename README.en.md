@@ -60,7 +60,7 @@ Configure the library location and maintenance agreement once, then make ordinar
 
 Five skills handle setup, reading, writeback, review, and session records. Agents read relevant context and update notes at meaningful checkpoints, without requiring you to name each skill every time.
 
-This happens while the agent works. The host must discover the skills, load standing instructions, and access local files. See the [usage guide](docs/usage.en.md) for setup.
+The package follows the [Agent Skills](https://agentskills.io/specification) format. Codex and Claude Code share the same skills and maintenance policy, with separate installation and instruction entry points. Maintenance happens while the agent works; the host must discover the skills, load standing instructions, and access local files. See the [usage guide](docs/usage.en.md) for setup.
 
 ## Why Markdown
 

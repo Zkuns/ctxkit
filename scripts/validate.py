@@ -51,6 +51,8 @@ def validate_skill(folder):
     description = meta.get("description")
     if not isinstance(description, str) or not description.strip() or len(description) > 1024:
         fail(path, "description must contain 1–1024 characters")
+    if meta.get("disable-model-invocation", False) is not False:
+        fail(path, "Claude Code automatic skill selection must remain enabled")
     if "[TODO:" in text or "{{" in text:
         fail(path, "unfinished skill scaffold")
     if not (folder / "LICENSE").is_file():

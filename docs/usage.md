@@ -8,26 +8,43 @@
 
 ## 1. 安装 skills
 
-需要 Python 3.9+。以下使用 Codex 官方文档列出的用户级目录；其他客户端请替换为实际支持的 skills 目录。已有安装使用其他可被发现的目录时沿用原位置，避免多处重复安装同名 skill。
+需要 Python 3.9+。Codex 和 Claude Code 使用同一套 Agent Skills 文件，只需选择安装入口。
 
 ```sh
 git clone https://github.com/Zkuns/ctxkit.git
 cd ctxkit
-
-# 预览目的地，不写入文件
-python3 scripts/install.py \
-  --target "$HOME/.agents/skills" --dry-run
-
-# 安装五个 skills
-python3 scripts/install.py \
-  --target "$HOME/.agents/skills"
 ```
 
-只装单个 skill 时，可添加 `--skill context-read` 等参数。
+Codex：
+
+```sh
+# 预览目的地，不写入文件
+python3 scripts/install.py --client codex --dry-run
+
+# 安装五个 skills
+python3 scripts/install.py --client codex
+```
+
+Claude Code：
+
+```sh
+python3 scripts/install.py --client claude-code --dry-run
+python3 scripts/install.py --client claude-code
+```
+
+两个预设分别使用 `~/.agents/skills/` 和 `~/.claude/skills/`，可以分别安装并指向同一个上下文库。只装单个 skill 时添加 `--skill context-read` 等参数。
+
+使用自定义目录、项目级目录或其他客户端时，以 `--target` 替代 `--client`：
+
+```sh
+python3 scripts/install.py --target /absolute/path/to/skills --dry-run
+```
+
+确认后去掉 `--dry-run` 安装。已有安装沿用原位置，避免在不同目录重复安装同名 skill；`--client` 只选择默认目录，不检测或迁移已有配置。
 
 安装器只复制 skill 文件夹，遇到任何重名目标会在开始复制前退出。它不覆盖旧 skills，不修改客户端配置或资料库。也可以手动复制完整 skill 目录。
 
-Codex 会自动发现 skill 变化；没有出现时重启客户端。不同客户端的加载和调用方式以各自能力为准。[官方说明](https://learn.chatgpt.com/docs/build-skills)
+确认客户端能发现五个 skills；没有出现时按客户端方式重载或开始新会话。两个客户端都支持按描述自动选择技能。[Codex 说明](https://learn.chatgpt.com/docs/build-skills) · [Claude Code 说明](https://code.claude.com/docs/en/skills)
 
 ## 2. 准备 session 脚本的 Python
 
@@ -42,7 +59,7 @@ python3 -m venv .venv
 
 ## 3. 配置自动维护
 
-使用 [AGENTS.context.template.md](../skills/context-setup/assets/AGENTS.context.template.md)，替换其中三个路径，并**增量合并**到客户端实际会加载的指令文件，保留其他已有规则。
+使用共用的 [维护模板](../skills/context-setup/assets/maintenance.template.md)，替换其中三个路径，并**增量合并**到客户端实际会加载的指令文件，保留其他已有规则；已有 CtxKit 段落就更新，不重复追加。
 
 | 模板变量 | 填写内容 |
 | --- | --- |
@@ -52,7 +69,14 @@ python3 -m venv .venv
 
 这些是指令模板的占位符，不是脚本自动解析的环境变量。模板默认启用相关已登记项目的阶段写回和 session 摘要；只想维护项目时，去掉启用 session 和调用 `context-log` 的约定即可。
 
-Codex 可使用用户级 `~/.codex/AGENTS.md`；仅在一个仓库内使用时，可放入该仓库的 `AGENTS.md`。自定义了 `CODEX_HOME` 或存在 `AGENTS.override.md` 时，应核对实际生效的入口。不要只把规则放在资料库里就假定每个新聊天会读到它。[官方指令加载规则](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
+| 使用范围 | Codex | Claude Code |
+| --- | --- | --- |
+| 个人全部项目 | `~/.codex/AGENTS.md` | `~/.claude/CLAUDE.md` |
+| 单个代码仓库 | 项目 `AGENTS.md` | 项目 `CLAUDE.md` 导入共用的 `AGENTS.md` |
+
+在项目中共用规则时，将约定放进 `AGENTS.md`，再向同目录的 `CLAUDE.md` 加入 `@AGENTS.md`，保留原有内容。新版 Claude Code 也可直接读取 `AGENTS.md`，但存在版本和配置条件，导入方式便于兼容。个人绝对路径放在个人配置中，不提交到公共项目。
+
+自定义目录、Codex 的 `AGENTS.override.md` 优先级及验证方式见 [客户端接入说明](../skills/context-setup/references/clients.md)。不要只把模板放在资料库里就假定每个新聊天会读到它。
 
 也可以让 agent 帮你完成这一次配置，不必知道 skill 名：
 
@@ -61,10 +85,12 @@ Codex 可使用用户级 `~/.codex/AGENTS.md`；仅在一个仓库内使用时�
 库目录：/absolute/path/to/context
 导航入口：/absolute/path/to/context/CONTEXT.md
 脚本 Python：/absolute/path/to/ctxkit/.venv/bin/python
-把约定增量加入我的 /absolute/path/to/AGENTS.md，沿用现有资料结构。
+配置我当前使用的客户端，沿用现有资料结构，保留已有指令。
 ```
 
 这是一次配置请求。之后只说正常任务即可，不需要每轮重复路径或“记下来”。新库也可以用自然语言要求建立导航与项目入口；已有库按原有目录接入，不必迁移到示例结构。
+
+同时使用两种客户端时，给另一个客户端接入相同的库和维护约定即可；不同客户端的新聊天各自记录 session，不因涉及同一个项目就合并摘要。
 
 ## 4. 确认实际生效
 
@@ -129,7 +155,11 @@ Skills 说明何时适用、怎么做；常驻指令声明库的位置、作用�
 
 在一次工作中，agent 应先读取相关背景，完成有意义的阶段后更新项目，再更新对应 session。阶段回复或等待用户前保存已有成果，不必等到整段聊天结束。写记录本身不再次触发维护循环。
 
-这套约定在 agent 处理任务时执行，不是后台定时器，也不监听关闭窗口或崩溃。需要定时或退出回调时，还需要宿主提供相应能力。[Codex skills 官方说明](https://learn.chatgpt.com/docs/build-skills)
+这套流程由三层配合：常驻指令提醒检查背景与未保存成果，`SKILL.md` 的描述帮助模型选择能力，技能正文和脚本执行具体读写。`agents/openai.yaml` 是 Codex 的补充配置，不是 Claude Code 的自动调用开关。
+
+模型按内容判断保存价值：能减少下次接手的重复工作、误判或背景解释，就值得保留；同一阶段合并保存，没有新信息则跳过。
+
+这些约定在 agent 处理任务时执行。Agent Skills 格式没有统一的定时或生命周期回调；如以后需要 hooks，应作为各客户端的可选适配。当前包不安装 hooks，也不保证关闭窗口或崩溃前保存。
 
 ## 更新与常见问题
 

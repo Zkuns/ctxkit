@@ -4,7 +4,7 @@
 
 ## 0. 只做一次的配置
 
-把 [示例库](vault/CONTEXT.md) 复制到临时目录，安装 CtxKit 并准备 PyYAML。填好 [常驻指令模板](../skills/context-setup/assets/AGENTS.context.template.md) 的库、导航与 Python 路径，增量加入客户端实际加载的指令文件。
+把 [示例库](vault/CONTEXT.md) 复制到临时目录，安装 CtxKit 并准备 PyYAML。填好 [常驻指令模板](../skills/context-setup/assets/maintenance.template.md) 的库、导航与 Python 路径，增量加入客户端实际加载的指令文件。
 
 下面假设已启用相关项目的阶段写回、session 工作摘要与局部维护。这个前提不能只写在一条旧聊天中就假定所有新聊天都继承。
 

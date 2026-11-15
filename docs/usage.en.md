@@ -12,29 +12,37 @@ With the skills installed and standing instructions active, the agent should rea
 
 Two pieces make this work:
 
-- Skills describe when and how to perform each operation. All five explicitly allow implicit invocation in `agents/openai.yaml`.
+- Standard `SKILL.md` descriptions help the model choose when to use each skill. Codex and Claude Code both support automatic selection; `agents/openai.yaml` is additional Codex-specific metadata.
 - Standing instructions provide your library paths and the agreement to read at project entry and write at meaningful checkpoints.
 
-Implicit invocation permits selection; it does not create a scheduler. Actual execution still depends on the host loading the instructions and the model following them. CtxKit does not listen for window closure or crashes, promise fixed-interval saves, or manage the runtime status of chats. See the [official skills documentation](https://learn.chatgpt.com/docs/build-skills).
+Implicit invocation permits selection; it does not create a scheduler. Actual execution still depends on the host loading the instructions and the model following them. The [Agent Skills format](https://agentskills.io/specification) does not define universal lifecycle hooks. CtxKit does not install hooks, promise saves on closure or crashes, or manage the runtime status of chats. See the [Codex](https://learn.chatgpt.com/docs/build-skills) and [Claude Code](https://code.claude.com/docs/en/skills) skill documentation.
 
 ## Install and configure once
 
-Using Python 3.9+, install into the skills directory your client discovers. This example uses the documented Codex user directory. If you already use another discovered location, keep that location and avoid duplicate installations.
+Using Python 3.9+, install the same package into your client's default personal skills directory:
 
 ```sh
 git clone https://github.com/Zkuns/ctxkit.git
 cd ctxkit
-python3 scripts/install.py --target "$HOME/.agents/skills" --dry-run
-python3 scripts/install.py --target "$HOME/.agents/skills"
+
+# Codex: ~/.agents/skills/
+python3 scripts/install.py --client codex --dry-run
+python3 scripts/install.py --client codex
+
+# Claude Code: ~/.claude/skills/ (run this pair if you use Claude Code)
+python3 scripts/install.py --client claude-code --dry-run
+python3 scripts/install.py --client claude-code
 
 # Needed for session records; reuse an existing PyYAML environment if preferred.
 python3 -m venv .venv
 .venv/bin/python -m pip install -r skills/context-log/requirements.txt
 ```
 
-The installer refuses existing destinations before copying. It does not install Python dependencies, modify host configuration, or modify your library. Add `--skill context-read` to install just one skill. Codex detects new skills automatically; restart it if they do not appear. Other clients have their own discovery rules.
+The installer refuses existing destinations before copying. It does not install Python dependencies, modify host configuration, or modify your library. Add `--skill context-read` to install just one skill. Confirm that the client discovers the skills, reloading or starting a new session if needed.
 
-Fill in the [standing-instruction template](../skills/context-setup/assets/AGENTS.context.template.md):
+For custom, project-local, or other clients' directories, replace `--client` with `--target /absolute/path/to/skills`. Existing `--target` commands still work. Client presets select default directories only; they do not detect or migrate an existing installation. Keep an existing discovered location to avoid duplicate skills.
+
+Fill in the [standing-instruction template](../skills/context-setup/assets/maintenance.template.md):
 
 | Placeholder | Value |
 | --- | --- |
@@ -42,9 +50,16 @@ Fill in the [standing-instruction template](../skills/context-setup/assets/AGENT
 | `context_index` | Absolute path to its existing navigation document |
 | `context_python` | Absolute path to a Python executable with PyYAML installed |
 
-These are template placeholders for instructions, not an environment-variable interface. Merge the filled template into instructions the host actually loads, preserving existing rules. The template enables both project updates and session records for relevant registered projects. Remove the session-specific agreement if you only want project notes.
+These are template placeholders for instructions, not an environment-variable interface. Merge the filled template into instructions the host actually loads, preserving existing rules. Update an existing CtxKit section instead of appending another. The template enables both project updates and session records for relevant registered projects. Remove the session-specific agreement if you only want project notes.
 
-For Codex, use the global `~/.codex/AGENTS.md`, or a repository's `AGENTS.md` for repository-specific scope. Check `CODEX_HOME` and any `AGENTS.override.md` if the rules do not load. Putting the template only inside the library does not make it active. See the [official instruction discovery rules](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
+| Scope | Codex | Claude Code |
+| --- | --- | --- |
+| Personal, across projects | `~/.codex/AGENTS.md` | `~/.claude/CLAUDE.md` |
+| One repository | Project `AGENTS.md` | Project `CLAUDE.md` importing the shared `AGENTS.md` |
+
+For repository scope, merge the agreement into `AGENTS.md` and add `@AGENTS.md` to the adjacent `CLAUDE.md`, preserving existing instructions. Recent Claude Code versions can also read `AGENTS.md` directly, subject to version and configuration; the import provides compatibility. Keep personal absolute paths in personal configuration rather than public repository instructions. See [Claude Code's shared-file instructions](https://code.claude.com/docs/en/memory#share-one-file-with-other-coding-tools).
+
+Check `CODEX_HOME` and any `AGENTS.override.md` when configuring Codex. Other customized client locations must also match the active configuration. Putting the template only inside the library does not make it active. See the [Codex discovery rules](https://learn.chatgpt.com/docs/agent-configuration/agents-md) and the bundled [client setup reference — Chinese](../skills/context-setup/references/clients.md).
 
 You can ask the agent to do this initial setup in natural language:
 
@@ -54,10 +69,12 @@ checkpoint updates, and session work summaries.
 Library: /absolute/path/to/context
 Index: /absolute/path/to/context/CONTEXT.md
 Python: /absolute/path/to/ctxkit/.venv/bin/python
-Merge the agreement into /absolute/path/to/AGENTS.md and preserve my layout.
+Configure my current client, preserving my library layout and existing instructions.
 ```
 
 Start a new conversation and verify which library and maintenance instructions it loaded. After meaningful work, inspect the actual file links it reports. Test on a temporary copy of the fictional example vault first if preferred.
+
+Both clients can use the same library and maintenance policy. Configure each entry point once. A new conversation in another client gets its own work record; sharing a project is not evidence of sharing a session.
 
 ## Skill responsibilities
 
@@ -93,7 +110,7 @@ Use for conflicts, broken links, duplication, or excess detail that affects hand
 
 Example: “Check these notes for contradictions without editing them.” [Skill instructions](../skills/context-review/SKILL.md)
 
-A read-only request or “don't record this” takes precedence over ordinary maintenance. Unchanged saves do not refresh timestamps. Documentation edits do not trigger another maintenance cycle. Explicit `$context-read` and similar invocations remain optional ways to select a skill precisely.
+A read-only request or “don't record this” takes precedence over ordinary maintenance. Save information that helps the next agent avoid repeated work or mistaken assumptions; combine related outcomes at a checkpoint. Unchanged saves do not refresh timestamps, and record maintenance does not trigger another maintenance cycle. Explicit selection remains optional: Codex uses `$context-read`, while Claude Code uses `/context-read`.
 
 The skill instructions, templates, and worked examples are currently in Chinese. [The walkthrough](../examples/walkthrough.md) demonstrates ordinary prompts and expected behavior, not measured model performance.
 

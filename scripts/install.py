@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy selected skills into an explicit host directory without overwriting."""
+"""Copy skills to a client's default directory or an explicit target, without overwriting."""
 
 import argparse
 from pathlib import Path
@@ -8,6 +8,10 @@ import sys
 
 
 SKILLS_ROOT = Path(__file__).resolve().parents[1] / "skills"
+CLIENT_DIRECTORIES = {
+    "codex": Path(".agents") / "skills",
+    "claude-code": Path(".claude") / "skills",
+}
 
 
 def available_skills():
@@ -62,12 +66,15 @@ def install(target, names, dry_run=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", required=True, help="Your client's skills directory")
+    destination = parser.add_mutually_exclusive_group(required=True)
+    destination.add_argument("--client", choices=CLIENT_DIRECTORIES, help="Use this client's default personal skills directory")
+    destination.add_argument("--target", help="Explicit skills directory (for custom or project-local installations)")
     parser.add_argument("--skill", action="append", choices=available_skills(), help="Repeat to select skills; defaults to all")
     parser.add_argument("--dry-run", action="store_true", help="Validate destinations and print the plan without writing")
     args = parser.parse_args()
     try:
-        install(args.target, args.skill or available_skills(), args.dry_run)
+        target = args.target if args.target is not None else Path.home() / CLIENT_DIRECTORIES[args.client]
+        install(target, args.skill or available_skills(), args.dry_run)
     except (OSError, ValueError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

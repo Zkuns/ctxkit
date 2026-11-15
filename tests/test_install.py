@@ -1,4 +1,6 @@
+from contextlib import redirect_stdout
 import importlib.util
+from io import StringIO
 from pathlib import Path
 import subprocess
 import sys
@@ -83,6 +85,40 @@ class InstallTests(unittest.TestCase):
     def test_source_tree_cannot_be_an_install_destination(self):
         with self.assertRaises(ValueError):
             installer.install(installer.SKILLS_ROOT / "nested", ["context-read"], dry_run=True)
+
+    def test_client_presets_install_same_package_in_isolated_home(self):
+        home = Path(self.temp.name)
+        for client, directory in (("codex", ".agents"), ("claude-code", ".claude")):
+            with self.subTest(client=client):
+                # Stub home lookup so this cannot reach real client directories,
+                # including on Windows where HOME alone does not select the home.
+                with patch.object(installer.Path, "home", return_value=home), \
+                        patch.object(sys, "argv", [str(SCRIPT), "--client", client]), \
+                        redirect_stdout(StringIO()):
+                    self.assertEqual(installer.main(), 0)
+                target = home / directory / "skills"
+                self.assertEqual({p.name for p in target.iterdir()}, set(installer.available_skills()))
+                for source in installer.SKILLS_ROOT.rglob("*"):
+                    if source.is_file() and "__pycache__" not in source.parts and source.name != ".DS_Store" and source.suffix != ".pyc":
+                        self.assertEqual(source.read_bytes(), (target / source.relative_to(installer.SKILLS_ROOT)).read_bytes())
+        # Installing skills must not silently enable writeback or replace instructions.
+        self.assertFalse((home / ".codex").exists())
+        self.assertEqual([p.name for p in (home / ".claude").iterdir()], ["skills"])
+
+    def test_client_dry_run_does_not_create_configuration(self):
+        home = Path(self.temp.name)
+        for client in ("codex", "claude-code"):
+            with self.subTest(client=client):
+                with patch.object(installer.Path, "home", return_value=home), \
+                        patch.object(sys, "argv", [str(SCRIPT), "--client", client, "--dry-run"]), \
+                        redirect_stdout(StringIO()):
+                    self.assertEqual(installer.main(), 0)
+        self.assertEqual(list(home.iterdir()), [])
+
+    def test_client_and_target_cannot_be_combined(self):
+        result = self.run_cli("--client", "codex")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.target.exists())
 
 
 if __name__ == "__main__":
