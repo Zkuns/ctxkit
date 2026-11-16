@@ -1,78 +1,57 @@
 # CtxKit
 
-给 AI agent 用的个人上下文库，以 Markdown 保存项目知识和会话工作摘要。
+正常使用 AI session 做事，让有价值的成果逐渐形成自己的上下文库。
 
-[English](README.en.md) · [使用指南](docs/usage.md)
+[English](README.en.md) · [DSH 插件](plugins/dsh/README.md) · [设计与数据契约](docs/dsh-design.md)
 
-## 为什么做这个项目
+## 知识会长成什么样
 
-一个项目常常跨越很多次聊天。做过哪些尝试、为什么选择这个方案、现在卡在哪里，这些信息散落在不同对话中。换个窗口或换个工具，又要重新解释背景。
-
-CtxKit 希望把值得带到下一次工作的内容，留在自己的文件里。随着项目推进，agent 读取已有背景、更新已确认的成果，让后续工作有一个可以接手的起点。
-
-## 两个核心概念
-
-### 项目上下文
-
-描述项目**现在是什么状态**：目标与边界、重要决策、验证依据、阻塞和下一步。
-
-它随着工作持续更新。详细方案和证据放在关联文档里，项目入口保持简短。
-
-### Session 工作摘要
-
-记录**这次会话做了什么**：完成了哪些工作、形成了哪些结论、还有什么没解决。
-
-一次会话可以关联多个项目，跨几天也继续更新同一条摘要。它保留有用的成果与来源，完整聊天仍留在原来的应用里。
-
-项目上下文帮助接着做，session 摘要帮助回头看。后续工作改变了项目状态，也不需要抹去此前发生过的事情。
-
-## 文件如何组织
-
-这个仓库的 `skills/` 保存工作方法，`docs/` 保存使用说明。你的真实资料单独放在上下文库里，例如：
+**主题不是固定的项目表。** 它可以是产品、长期事项、技术专题或工作方法。一个主题从简短入口开始，随实际工作逐渐长出详细文档和可复用操作草稿：
 
 ```text
 context/
-├── CONTEXT.md
-├── projects/
-│   ├── atlas/
-│   │   ├── PROJECT.md
-│   │   └── decisions/search.md
-│   └── beacon/
-│       └── PROJECT.md
-├── sessions/
-│   └── sess_<id>.md
-└── sessions.base
+├── INDEX.md
+├── topics/topic_atlas/
+│   ├── OVERVIEW.md
+│   ├── docs/
+│   │   ├── architecture.md
+│   │   └── authentication.md
+│   └── skills/deploy/SKILL.md
+└── sessions/session_<id>/
+    ├── SESSION.md
+    └── checkpoints/cp_<id>.md
 ```
 
-- **总导航**：`CONTEXT.md` 指向各项目入口，帮助 agent 找到本次需要的资料。
-- **项目目录**：每个项目一个目录，`PROJECT.md` 保存当前状态、关键决策和下一步。
-- **专题资料**：方案理由、验证记录等按需放在项目目录内，由项目主文档链接过去。
-- **会话摘要**：统一放在 `sessions/`，通过 `projects` 属性关联一个或多个项目。同一会话继续更新原文件，列表按 `updated_at` 倒序展示。
-- **可选视图**：`sessions.base` 是 Obsidian 的展示配置，实际记录仍在 Markdown 中。
+- **OVERVIEW** 是接手入口与导航，不复制所有细节。
+- **详细文档** 解释当前系统、功能、决策、约束和依据。
+- **主题 skills** 保存可复用操作的草稿；形成草稿不等于安装或授权执行。
+- **Session 档案** 记录这次工作怎么推进、取得什么成果、停在哪里。
+- **阶段记录** 为主题文档提供可追溯来源；一个 session 可以贡献多个主题。
 
-这是新库的示例布局，已有目录和文件名可以沿用；当前记录脚本使用库根目录的 `sessions/`。字段与更新规则见 [数据结构](docs/data-model.md)。
+主题保存当前理解，session 保留工作历史。计划、实现、实测、用户反馈和推断分开记录，后来的结论不会把早期尝试伪装成从未发生。
 
-## 怎样融入日常工作
+## DSH 插件优先
 
-一次配置好库的位置和维护约定后，正常提出任务即可：
+新的实现位于 [plugins/dsh](plugins/dsh/README.md)，不依赖旧版五个 skills。
 
-> 接着做 Atlas，排查混合语言检索的问题。
+第一版提供自动阶段提取、主题与详细文档整理、带依据的主题关系、惰性 skill 草稿，以及按需搜索和读取。数据用 Markdown 保存，无向量数据库或额外 Python 运行时依赖。写入经过当前 session 的文件权限检查，版本冲突和失败可检查、可重试。
 
-CtxKit 提供五个 skills，分别负责接入、读取、写回、整理和会话记录。agent 按需读取项目背景，在有实质成果的阶段更新项目与 session，不需要每次逐个点名调用。
+**默认不采集。** 安装后仍需指定已有库目录、允许的工作区和整理模型，再显式启用。不扫描全部历史聊天，也不自动部署、发布或安装生成的 skill。
 
-技能采用 [Agent Skills](https://agentskills.io/specification) 格式，Codex 和 Claude Code 共用同一套技能与维护约定，分别配置安装和指令入口。自动维护在 agent 处理任务时执行，需要客户端能加载 skills、读取常驻指令并访问本地文件。具体配置见 [使用指南](docs/usage.md)。
+当前是 **0.1 MVP**：以回合结束为候选检查点，模型可跳过无实质进展的回合；不保证退出前保存。搜索采用关键词，知识正确性依赖模型与用户核对。具体限制、配置和验证范围见 [插件说明](plugins/dsh/README.md)。
 
-## 为什么选择 Markdown
+## 开发
 
-资料可以直接阅读、修改，也可以自行用 Git 管理版本或用 Obsidian 浏览。目录结构和文件内容都能检查，项目知识可以随着你迁移到其他支持文件访问的工具。
+```sh
+node --test plugins/dsh/tests/*.test.js
+.venv/bin/python scripts/validate.py
+.venv/bin/python -m unittest discover -s tests -v
+```
 
-技能包保存工作方法，你的上下文库保存真实资料，两者分开维护。
+更多信息见 [开发说明](docs/development.md)。测试使用虚构材料和临时目录，不读写个人真实资料。
 
-## 进一步了解
+## 早期 skills 原型
 
-- [使用指南](docs/usage.md)：安装、自动维护配置和五个 skills 的用法。
-- [数据结构](docs/data-model.md)：项目文件、session 字段和更新规则。
-- [完整示例](examples/walkthrough.md)：一次跨项目、跨多天的工作过程。
-- [开发说明](docs/development.md)：仓库结构、校验和贡献方式。
+根目录 `skills/` 和 [旧版使用指南](docs/usage.md) 保留早期的 Codex / Claude Code 项目上下文原型，其 [数据格式](docs/data-model.md) 与新插件不同。它们仍可独立使用，但不代表新系统的自动采集能力，也不自动迁移或覆盖旧库。
 
 [MIT License](LICENSE)

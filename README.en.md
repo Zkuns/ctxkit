@@ -1,78 +1,53 @@
 # CtxKit
 
-A personal context library for AI agents, with project knowledge and session work summaries stored in Markdown.
+Work normally in AI sessions. Let useful outcomes grow into a context library you own.
 
-[中文](README.md) · [Usage guide](docs/usage.en.md)
+[中文](README.md) · [DSH plugin](plugins/dsh/README.md) · [Design and contracts (Chinese)](docs/dsh-design.md)
 
-## Why this project exists
+## A growing knowledge and capability space
 
-Projects often span many conversations. Past attempts, decision rationale, current blockers, and next steps end up scattered across chats. A new conversation or a different tool means explaining that background again.
-
-CtxKit keeps the information worth carrying forward in files you own. As work progresses, agents read the relevant background and update confirmed outcomes, giving the next conversation a useful starting point.
-
-## Two core concepts
-
-### Project context
-
-Describes **where the project stands now**: goals, scope, important decisions, evidence, blockers, and next steps.
-
-It changes as the project progresses. Detailed reasoning and evidence live in linked documents, keeping the project entry point short.
-
-### Session work summary
-
-Records **what one conversation accomplished**: work completed, conclusions reached, and unresolved questions.
-
-One conversation can cover several projects and continue updating the same summary across days. The summary keeps useful outcomes and references; the original application retains the full chat.
-
-Project context helps you continue work. Session summaries help you look back. A later change in project state does not have to erase what happened earlier.
-
-## How files are organized
-
-This repository keeps workflows in `skills/` and usage documentation in `docs/`. Your real data lives in a separate context library, for example:
+A topic is not necessarily a code project. It may be a product, an ongoing activity, a technical subject, or a reusable working method. Start with an overview, then grow detailed documents and procedure drafts only when the work justifies them.
 
 ```text
 context/
-├── CONTEXT.md
-├── projects/
-│   ├── atlas/
-│   │   ├── PROJECT.md
-│   │   └── decisions/search.md
-│   └── beacon/
-│       └── PROJECT.md
-├── sessions/
-│   └── sess_<id>.md
-└── sessions.base
+├── INDEX.md
+├── topics/topic_atlas/
+│   ├── OVERVIEW.md
+│   ├── docs/
+│   │   ├── architecture.md
+│   │   └── authentication.md
+│   └── skills/deploy/SKILL.md
+└── sessions/session_<id>/
+    ├── SESSION.md
+    └── checkpoints/cp_<id>.md
 ```
 
-- **Library index:** `CONTEXT.md` links to project entry points so agents can find relevant context.
-- **Project folders:** Each project has its own directory. `PROJECT.md` holds its current state, key decisions, and next steps.
-- **Topic documents:** Detailed rationale and verification records live alongside the project notes, linked from the entry point.
-- **Session summaries:** Files in `sessions/` reference one or more projects through the `projects` property. The same conversation updates the same file; lists sort by `updated_at`, newest first.
-- **Optional view:** `sessions.base` configures an Obsidian view. The records themselves remain in Markdown.
+The overview is a task-oriented index. Documents explain current knowledge, decisions, constraints and evidence. Topic skills are inert procedure drafts, not installed capabilities or execution permission. Session records explain what happened and where work stopped; their checkpoints provide sources for topic updates. One session can contribute to multiple topics.
 
-This is an example layout for a new library. Existing project layouts and file names can remain; the current record script uses `sessions/` at the library root. See the [data model — Chinese](docs/data-model.md) for fields and update rules.
+Current understanding and historical work are distinct. Planned actions, implementation, observed checks, user reports and inferences must not be conflated.
 
-## How it fits into your work
+## DSH first
 
-Configure the library location and maintenance agreement once, then make ordinary requests:
+The new implementation lives in [plugins/dsh](plugins/dsh/README.md) and does not depend on the five original skills.
 
-> Continue Atlas and investigate the mixed-language search issue.
+The first version provides automatic checkpoint extraction, topic/document organization, evidenced relationships, inert skill drafts, and on-demand search/read tools. Markdown is authoritative, with no vector database or extra Python runtime. Writes respect the current session's file policy, detect stale revisions and retain recoverable processing state.
 
-Five skills handle setup, reading, writeback, review, and session records. Agents read relevant context and update notes at meaningful checkpoints, without requiring you to name each skill every time.
+**Capture is inactive by default.** Configure an existing vault, explicitly allowed workspaces and a summarization model before enabling. Installation does not scan all historical conversations or authorize deployment, publishing or generated skill installation.
 
-The package follows the [Agent Skills](https://agentskills.io/specification) format. Codex and Claude Code share the same skills and maintenance policy, with separate installation and instruction entry points. Maintenance happens while the agent works; the host must discover the skills, load standing instructions, and access local files. See the [usage guide](docs/usage.en.md) for setup.
+This is a **0.1 MVP**. Completed turns are candidate checkpoints; the model can skip insignificant ones. There is no shutdown-save guarantee. Search is lexical, and factual quality still needs model/user evaluation. See the [plugin guide](plugins/dsh/README.md) for configuration and limits.
 
-## Why Markdown
+## Development
 
-Read and edit your files directly, manage versions with Git, or browse them in Obsidian. The structure stays inspectable, and the knowledge can move with you to other tools that support file access.
+```sh
+node --test plugins/dsh/tests/*.test.js
+.venv/bin/python scripts/validate.py
+.venv/bin/python -m unittest discover -s tests -v
+```
 
-The skill package holds the workflow. Your separate context library holds your real data.
+Tests use fictional material in isolated temporary directories. See [development notes (Chinese)](docs/development.md).
 
-## Explore further
+## Earlier skill prototype
 
-- [Usage guide](docs/usage.en.md): installation, automatic maintenance, and the five skills.
-- [Data model — Chinese](docs/data-model.md): project documents, session fields, and update rules.
-- [Walkthrough — Chinese](examples/walkthrough.md): work across projects and days.
-- [Development — Chinese](docs/development.md): repository layout, validation, and contributing.
+The root `skills/` directory and [earlier usage guide](docs/usage.en.md) retain the original Codex / Claude Code project-context prototype. Its data model is separate from the new plugin. These skills remain independently usable, but do not provide the plugin's automatic capture, and are not migrated into a new vault automatically.
 
 [MIT License](LICENSE)

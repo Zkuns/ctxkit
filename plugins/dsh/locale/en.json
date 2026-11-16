@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "CtxKit context library",
+    "description": "Organizes new work in opted-in workspaces into Markdown session checkpoints, topic knowledge and inert procedure drafts, with provenance and on-demand recall. Inactive by default: configure an existing vault, allowed workspaces and a summarization model before enabling. Read-only sessions do not write. No automatic deployment, skill installation or full-history scan. This 0.1 MVP exposes processing failures through ctxkit_status."
+  }
+}

@@ -1,0 +1,9 @@
+- insert:
+    - id: ctxkit
+      name: ctxkit-dsh
+      config:
+        enabled: false
+        root: ''
+        allowedWorkspaces: []
+        provider: ''
+        model: ''

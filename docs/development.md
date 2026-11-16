@@ -2,7 +2,35 @@
 
 [项目首页](../README.md) · [使用指南](usage.md) · [数据结构](data-model.md)
 
-## 仓库结构
+## 当前主线：DSH 插件
+
+新设计见 [知识与能力空间](dsh-design.md)，配置与操作见 [插件 README](../plugins/dsh/README.md)，实际执行与未验证范围见 [MVP 验证记录](dsh-verification.md)。
+
+```text
+plugins/dsh/
+├── index.js              # Cordis bundle 入口
+├── adapter.js            # 原生事件、模型、权限、工具与 skill 接入
+├── contracts.js          # 有界输入和方案校验
+├── engine.js             # capture / organize / recover 状态机
+├── vault.js              # Markdown、CAS、journal 与关键词检索
+├── prompts.js            # 无工具提取与整理提示
+├── locale/               # 中英文插件元数据
+└── tests/                # 虚构临时库及宿主适配测试
+```
+
+```sh
+node --test plugins/dsh/tests/*.test.js
+npm --prefix plugins/dsh run check
+npm --prefix plugins/dsh pack --dry-run
+```
+
+没有 runtime npm 依赖或安装脚本。`native-fs.test.js` 仅在存在 `DSH_INSTALL_DIR` 时解析该安装的真实 Cordis 与 sandbox 文件后端；没有该变量就明确 skip，不偷偷安装 DSH。它用合成 session 和模型测试原生写入，不访问真实 profile、凭据或用户日志。
+
+所有核心写入要求 authorizer；DSH 运行时注入原生 fs publisher，单文件版本检查与发布由宿主后端完成。Standalone writer 仅用于隔离的核心测试。不要用替代 server 或 profile 手工编辑绕过插件管理。
+
+下方结构与说明是仍保留的**早期 skills 原型**，不限制新插件的数据模型。
+
+## 早期 skills 仓库结构
 
 ```text
 ctxkit/
