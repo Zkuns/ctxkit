@@ -38,10 +38,18 @@ The bundle is inactive by default. Choose an existing dedicated vault, an explic
 
 ## 日常使用 / Daily use
 
-在启用后的新 session 中正常做事。查询可以自然提出“继续 Atlas”“之前为什么这样决定”，模型可以使用原生 `ctxkit-recall` skill，按需调用：
+**用户不需要知道 CtxKit 的名字，也不需要先说“查记忆”。** 在启用后的工作区正常说“继续 Atlas”“修复这个项目的登录问题”“上次为什么这样决定”即可。Agent 获得直接可调用的 `recall_context` 工具和轻量常驻指引：当普通任务依赖之前的工作、决策或进度时，自主查询相关记录；需要细节再读来源。不要求先调用 skill，也不把整库加载到每轮对话。
+
+这是按需召回指引，不是强制每轮查询或保证模型每次都正确判断相关性；独立的新问题无需检索，历史结论仍需对照当前代码和实际情况。查询本身不额外调用整理模型，不修改知识库。原生 `ctxkit-recall` skill 保留为更详细的使用指引。
+
+User-facing use is ordinary task language, not a plugin invocation. The agent has a direct `recall_context` tool and guidance to retrieve relevant prior work proactively; no product name, special phrase, or skill invocation is required from the user.
+
+工具用于 Agent 调用，不是要求用户记住的命令：
 
 | Tool | Purpose |
 | --- | --- |
+| `recall_context` | Agent 主动召回相关历史、决策和进度，返回有界来源摘录；primary proactive recall |
+| `ctxkit_browse` | 分页浏览主题、会话档案、当前会话处理状态和文档；与浏览页共用查询 |
 | `ctxkit_search` | 关键词/名称/别名搜索，返回有界摘录和路径；lexical search |
 | `ctxkit_read` | 分页读正文、revision、来源元数据，以及主题双向关系；bounded read |
 | `ctxkit_status` | 当前 session 的处理任务、失败、采集资格及阻断原因；processing readiness/status |
@@ -51,6 +59,20 @@ The bundle is inactive by default. Choose an existing dedicated vault, an explic
 工具和 skill 仅在已配置且属于 allowlist 的调用范围可见；未启用时不会向所有 agent 添加无用工具。自动整理在工作回合后异步执行，最终回答发出并不代表整理已经结束；用 `ctxkit_status` 检查。
 
 Pause clears buffered source immediately and cancels that session's in-flight model request. A paused interval is not backfilled. If saving the pause flag fails, the response explicitly reports `persisted: false`; the in-memory pause still applies until restart. Resuming accepts future work, not permission to replay the paused interval.
+
+## 浏览入口 / Library browser
+
+安装或更新后刷新当前 DSH 页面，在侧栏打开 **“上下文库 / Context library”**。先选中一个真实会话，页面以该会话当前的工作区和权限检查访问范围，不会自行创建会话或扩大授权。
+
+- **主题**：搜索、分页查看主题入口，打开详细文档、操作草稿、关联主题及来源阶段。
+- **会话档案**：查看库中已采集的工作档案，按近期更新排序，进入各阶段记录和关联主题。这不是全部 DSH 聊天列表。
+- **处理状态**：查看当前所选会话的采集资格、处理阶段、失败代码及已保存的 checkpoint。库的主题/档案共享，处理任务不跨会话展示。
+
+未配置、没有记录、无匹配、无权限和读取失败分别显示。页面是**只读快照**：点击“刷新视图”获取后续变化；不轮询、不改配置、不自动重试整理、不安装或执行草稿。切换会话/工作区/权限或插件连接时，旧响应与旧文档会失效。正文先使用安全的纯文本 Markdown 阅读；受管理的来源、子文档和关系有独立导航按钮，正文中的任意链接或 HTML 不会执行。
+
+The native sidebar page offers Topics, Session dossiers and Processing tabs, search, pagination, safe document windows and managed-source navigation. It shares the exact bounded Host query with agent tools. The current selected session supplies access context; an empty setup is not presented as an empty successful library.
+
+浏览页通过 DSH 原生 session command 调用同一 Host 查询操作，不额外开启 HTTP server。DSH 会将有界查询结果写入该 session 的 command 审计日志（不作为模型聊天消息）；查询不写知识库，也不读取原始聊天全文。
 
 ## 形成的目录 / Resulting structure
 
@@ -101,7 +123,7 @@ If `.ctxkit/writer.lock` remains after a crash or permission revocation, do not 
 - 索引是关键词检索，不是语义向量搜索；中文按字符及完整查询匹配，质量需要真实案例评估。
 - 模型只能修改完整读过且 revision 匹配的既有文件。已有文件过大/未进入上下文时，不能凭目录摘要覆盖。
 - 来源引用证明可追溯性，不自动证明事实正确；本版本不执行独立事实核验。
-- 只实现 Host 工具与原生 recall skill，没有额外 Web 管理面板。不开新服务器、不修改 DSH shell。
+- 0.2 增加原生侧栏浏览页，沿用 DSH theme/locale/slots。仍没有设置向导、知识编辑、删除合并、自动刷新或一键部署操作；不开新服务器、不修改 DSH shell。
 - `engines.dsh` 精确限制为已核对的 0.2.2-rc.3；其他版本需重新核对 API 和验收，不能静默放宽。
 
 ## 开发检查 / Development checks

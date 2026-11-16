@@ -34,7 +34,9 @@ The first version provides automatic checkpoint extraction, topic/document organ
 
 **Capture is inactive by default.** Configure an existing vault, explicitly allowed workspaces and a summarization model before enabling. Installation does not scan all historical conversations or authorize deployment, publishing or generated skill installation.
 
-This is a **0.1 MVP**. Completed turns are candidate checkpoints; the model can skip insignificant ones. There is no shutdown-save guarantee. Search is lexical, and factual quality still needs model/user evaluation. See the [plugin guide](plugins/dsh/README.md) for configuration and limits.
+**Users need not mention CtxKit or ask to search memory.** The agent can proactively retrieve relevant prior work when a normal task depends on history. For manual browsing, open **Context library** in the DSH sidebar to view topics, captured session dossiers and the selected session's processing state.
+
+This is a **0.2 MVP**, adding a native read-only browser and a direct proactive-recall tool. Completed turns remain candidate checkpoints, with no shutdown-save guarantee. Retrieval is lexical; deciding when to recall and judging historical claims still require model judgment and current evidence. See the [plugin guide](plugins/dsh/README.md) for configuration and limits.
 
 ## Development
 

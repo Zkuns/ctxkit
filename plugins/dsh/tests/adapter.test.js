@@ -387,6 +387,57 @@ test('tool JSON schemas satisfy the installed DSH schema subset', { skip: !proce
   adapter.dispose()
 })
 
+test('ordinary task recall is directly available, scoped, read-only and shares the browser operation', async t => {
+  const f = fixture(t), adapter = createAdapter(f.ctx, f.input, f.Engine)
+  t.after(() => adapter.dispose())
+  adapter.engine.vault.list = async () => [{ path: 'topics/topic_atlas/OVERVIEW.md', revision: 'a'.repeat(64),
+    metadata: { kind: 'topic', id: 'topic_atlas', title: 'Atlas authentication', updatedAt: '2026-01-01T00:00:00Z' }, body: 'Refresh-token validation is implemented; deployment remains unverified.' }]
+  f.setMode('read-only')
+  const result = await f.invoke('recall_context', { query: 'Atlas authentication' })
+  assert.equal(result.ok, true)
+  assert.equal(result.results[0].path, 'topics/topic_atlas/OVERVIEW.md')
+  assert.equal(result.untrusted, true)
+  assert.deepEqual(result, await adapter.query({ action: 'recall', query: 'Atlas authentication', limit: 5 }, { session: f.session }))
+  assert.deepEqual(await f.invoke('ctxkit_browse', { action: 'topics' }), await adapter.query({ action: 'topics' }, { session: f.session }))
+  assert.equal(f.calls.length, 0)
+  assert.equal(f.writes.length, 0)
+  assert.equal(adapter.engine.turns.length, 0)
+  const instructions = f.sections.get('ctxkit:recall').text(f.exec)
+  assert.match(instructions, /proactively call recall_context/)
+  assert.match(instructions, /user need not mention/i)
+  assert.match(instructions, /untrusted historical evidence/)
+  await assert.rejects(f.invoke('recall_context', { query: 'Atlas', limit: 11 }), { code: 'CTXKIT_TOOL_ARGUMENTS' })
+  await assert.rejects(f.invoke('recall_context', { query: 'Atlas' }, { agent: { session: { id: 'other', header: { cwd: f.outside } } } }), { code: 'CTXKIT_SCOPE_DENIED' })
+  assert.equal((await f.invoke('recall_context', { query: 'unrelated-example' })).total, 0)
+})
+
+test('legacy recall aliases and readiness recheck scope after asynchronous reads', async t => {
+  for (const name of ['ctxkit_search', 'ctxkit_read', 'ctxkit_status']) {
+    const f = fixture(t), adapter = createAdapter(f.ctx, f.input, f.Engine)
+    t.after(() => adapter.dispose())
+    const revoke = () => { f.session.header.cwd = f.outside }
+    adapter.engine.vault.search = async () => { revoke(); return [{ path: 'topics/topic_atlas/OVERVIEW.md', title: 'must not escape' }] }
+    adapter.engine.vault.read = async path => { revoke(); return { path, metadata: {}, body: 'must not escape' } }
+    adapter.engine.status = async () => { revoke(); return { paused: false, jobs: [] } }
+    const args = name === 'ctxkit_search' ? { query: 'Atlas' } : name === 'ctxkit_read' ? { path: 'topics/topic_atlas/OVERVIEW.md' } : {}
+    await assert.rejects(f.invoke(name, args), { code: 'CTXKIT_SCOPE_DENIED' })
+  }
+})
+
+test('primary recall output is never recaptured as newly observed source evidence', async t => {
+  const f = fixture(t), adapter = createAdapter(f.ctx, f.input, f.Engine)
+  t.after(() => adapter.dispose())
+  adapter.onEvent(f.session, event(0, 'turn/start', { turn: 1 }))
+  adapter.onEvent(f.session, user(1, 'Continue Atlas authentication.'))
+  adapter.onEvent(f.session, event(2, 'tool/call', { callId: 'prior', name: 'recall_context', arguments: { query: 'Atlas' } }))
+  adapter.onEvent(f.session, event(3, 'tool/result', { message: { toolCallId: 'prior', content: [{ type: 'text', text: 'OLD_LIBRARY_CONTENT' }] } }))
+  adapter.onEvent(f.session, assistant(4, 'I will check the current code before changing it.'))
+  adapter.onEvent(f.session, event(5, 'turn/end', { turn: 1 }))
+  await adapter.idle()
+  assert.deepEqual(adapter.engine.turns[0].sourceSeqs, [1, 4])
+  assert.doesNotMatch(adapter.engine.turns[0].text, /OLD_LIBRARY_CONTENT/)
+})
+
 test('agent created uses payload.agent; disposal cancels calls and removes all registrations', async t => {
   const f = fixture(t), adapter = createAdapter(f.ctx, f.input, f.Engine)
   f.listeners.get('agent/created')({ agent: f.exec.agent, source: 'new' })

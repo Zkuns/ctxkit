@@ -10,6 +10,9 @@
 plugins/dsh/
 ├── index.js              # Cordis bundle 入口
 ├── adapter.js            # 原生事件、模型、权限、工具与 skill 接入
+├── library.js            # UI/Agent 共用的有界只读查询
+├── browser-host.js       # 原生 session command 桥接与可信会话绑定
+├── client.js             # 原生侧栏/主区域浏览页（lazy-factory artifact）
 ├── contracts.js          # 有界输入和方案校验
 ├── engine.js             # capture / organize / recover 状态机
 ├── vault.js              # Markdown、CAS、journal 与关键词检索

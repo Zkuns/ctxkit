@@ -1,5 +1,21 @@
 # DSH MVP 验证记录
 
+## 0.2：浏览入口与 Agent 自主召回
+
+日期：2026-11-16；目标 DSH `0.2.2-rc.3`。**82/82 项插件测试、27/27 项 Python 测试通过**，包括安装版原生 Commands、Cordis/Tools/Skills 和文件沙箱，无 skipped。五个 legacy skills 与 29 份 Markdown 链接校验通过。
+
+- `recall_context` 直接向 Agent 提供历史查询；普通任务依赖既有背景时主动调用，不要求用户命名插件或先调用 skill。断言工具注册、自然使用指引、共享查询一致性、只读与无额外模型调用；没有用真实模型验证每一次自主调用决策。
+- 原生“上下文库”页面使用 `sidebar.panellist` / `main` slots、宿主 locale/theme，以及当前真实会话的访问范围。topics/sessions/status/read 与 Agent 走相同 Host 查询；native Commands 测试确认接收到真实 loaded Session 的对象身份，并验证 command 审计与卸载。
+- 查询测试覆盖超过 search top30 的分页、Unicode 总字节预算、连续游标、近期会话排序、来源/关系/子文档导航、精确状态筛选、未配置/拒绝/错误、await 后 scope 撤销及取消。没有读取个人库或真实聊天。
+- Client 测试只覆盖 lazy-loader 注册、locale 同步、纯请求生命周期、超时/过期响应/卸载和静态契约；不执行 React 组件、不模拟 DOM，不把这些结果宣称为浏览器渲染验收。
+- 独立 UI/UX 静态审查已完成并修复关系方向/类型与端点导航、分页键盘焦点恢复、来源阶段按钮、截断提示，以及旧 search/read/status 在 await 后缺失的 scope 复查。静态证据下无剩余已识别 P1/P2。
+- 最终 `0.2.0` tarball 已通过 `plugin_manager` 安装，返回 `application: applied`、无插件管理器 warnings。安装版 manifest/client export 已回读；安装的 Client artifact 与源码 SHA-256 一致，语法通过。此客户端为直接交付的 lazy-factory artifact，不依赖重建 DSH shell。
+- 安装后重新访问现有 GUI URL，仍重定向到 Cloudflare Access 登录页。因此亮暗主题、响应式布局、浏览器焦点行为和已有资料阅读流程仍未完成实页验收；不以模拟页面截图替代。此次未配置实际库或整理模型，也未启用真实采集。
+
+原生 command 会把有界查询结果写入 session 审计日志，但不会送入模型聊天历史；查询不修改库。首次启用仍需要手动指定库、工作区范围和模型；浏览页不是设置向导。
+
+## 0.1 历史交付记录
+
 日期：2026-11-16。交付插件 `ctxkit-dsh@0.1.1`；目标安装：DSH `0.2.2-rc.3`，Node `26.0.0`。最终 **56/56 项插件测试、27/27 项原有 Python 测试通过**，无 skipped。五个 legacy skills 和 29 份 Markdown 的链接校验通过。本轮不使用真实会话内容、凭据或模型完成整理。
 
 ## 已执行
