@@ -1,6 +1,6 @@
 # CtxKit for DSH
 
-中文 / English · Host-only MVP · DSH **0.2.2-rc.3**
+中文 / English · Native Host + Web MVP · DSH **0.2.2-rc.3**
 
 ## 做什么 / What it does
 
@@ -12,7 +12,13 @@ Work normally in opted-in DSH sessions. Completed turns are checked for durable 
 
 在 DSH 的插件管理中添加本目录（或打包后的 npm tarball）。通过 agent 安装时使用 DSH 的 `plugin_manager`，不要自行重写用户 profile。源码包无依赖安装脚本，不下载 embedding 模型。
 
-安装默认值为 `enabled: false`，没有配置库、工作区与模型时也保持惰性。**安装不等于采集已启用。** 先决定以下内容，再用宿主支持的配置编辑机制保存该插件条目的配置；插件不会直接改写 profile 文件。
+安装默认值为 `enabled: false`，没有配置库、工作区与模型时也保持惰性。**安装不等于采集已启用，也不需要用户配置环境变量。**
+
+在侧栏打开 **上下文库 → 存储位置**，选择或填写一个已有目录，再明确保存；不必先选择会话。这是 **DSH 宿主机器上的目录**，远程浏览器本机的目录不等于服务器目录。推荐专用空目录。
+
+保存位置使用原生 Settings/configEditor 和版本检查，只更新 `root` 与 `enabled: false`。因此首次保存不会开启采集，修改位置会暂停已有采集；不会迁移、删除或改写旧目录里的资料。并发修改或权限/配置层覆盖会报错，不能当作保存成功。
+
+首次启用还需要允许的工作区和整理模型；本次位置设置页不替用户选择或修改这些字段。通过宿主支持的配置编辑机制保存完整配置后，再显式启用；插件不会直接改写 profile 文件。
 
 ```json
 {
@@ -26,7 +32,7 @@ Work normally in opted-in DSH sessions. Completed turns are checked for durable 
 
 这些路径、模型名都是占位示例。库与工作区必须已经存在，不能是符号链接；首次使用推荐**专用空库和一个测试工作区**。库中未带 CtxKit 标记的原有文件不会被覆盖，不自动迁移早期 skills 资料。
 
-The bundle is inactive by default. Choose an existing dedicated vault, an explicit workspace allowlist, and a configured DSH provider/model. Save the complete config through supported host configuration facilities. No credentials belong in plugin config. This MVP validates configuration in code; it does not provide a custom settings page or a schema-generated setup wizard.
+Capture is off by default. The library page has a Storage location form backed by native revisioned Settings; save an existing directory on the DSH host without environment variables. Saving always leaves capture off and never migrates old data. Workspace allowlist and provider/model remain separate explicit setup through host configuration facilities; this is a location form, not a full onboarding wizard. No credentials belong in plugin config.
 
 ### 权限和数据流 / Permissions and data flow
 
@@ -68,7 +74,7 @@ Pause clears buffered source immediately and cancels that session's in-flight mo
 - **会话档案**：查看库中已采集的工作档案，按近期更新排序，进入各阶段记录和关联主题。这不是全部 DSH 聊天列表。
 - **处理状态**：查看当前所选会话的采集资格、处理阶段、失败代码及已保存的 checkpoint。库的主题/档案共享，处理任务不跨会话展示。
 
-未配置、没有记录、无匹配、无权限和读取失败分别显示。页面是**只读快照**：点击“刷新视图”获取后续变化；不轮询、不改配置、不自动重试整理、不安装或执行草稿。切换会话/工作区/权限或插件连接时，旧响应与旧文档会失效。正文先使用安全的纯文本 Markdown 阅读；受管理的来源、子文档和关系有独立导航按钮，正文中的任意链接或 HTML 不会执行。
+未配置、没有记录、无匹配、无权限和读取失败分别显示。资料区域是**只读快照**：点击“刷新视图”获取后续变化；不轮询、不自动重试整理、不安装或执行草稿。独立的存储位置表单只有明确保存时才修改上述配置。切换会话/工作区/权限或插件连接时，旧响应与旧文档会失效。正文先使用安全的纯文本 Markdown 阅读；受管理的来源、子文档和关系有独立导航按钮，正文中的任意链接或 HTML 不会执行。
 
 The native sidebar page offers Topics, Session dossiers and Processing tabs, search, pagination, safe document windows and managed-source navigation. It shares the exact bounded Host query with agent tools. The current selected session supplies access context; an empty setup is not presented as an empty successful library.
 
@@ -123,12 +129,13 @@ If `.ctxkit/writer.lock` remains after a crash or permission revocation, do not 
 - 索引是关键词检索，不是语义向量搜索；中文按字符及完整查询匹配，质量需要真实案例评估。
 - 模型只能修改完整读过且 revision 匹配的既有文件。已有文件过大/未进入上下文时，不能凭目录摘要覆盖。
 - 来源引用证明可追溯性，不自动证明事实正确；本版本不执行独立事实核验。
-- 0.2 增加原生侧栏浏览页，沿用 DSH theme/locale/slots。仍没有设置向导、知识编辑、删除合并、自动刷新或一键部署操作；不开新服务器、不修改 DSH shell。
+- 0.3 增加原生存储位置表单，沿用 DSH Settings/configEditor；0.2 的浏览页沿用 theme/locale/slots。仍没有完整启用向导、知识编辑、删除合并、自动刷新或一键部署操作；不开新服务器、不修改 DSH shell。
 - `engines.dsh` 精确限制为已核对的 0.2.2-rc.3；其他版本需重新核对 API 和验收，不能静默放宽。
 
 ## 开发检查 / Development checks
 
 ```sh
+npm install --ignore-scripts
 npm run check
 npm test
 npm pack --dry-run

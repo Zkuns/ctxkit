@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import vm from 'node:vm'
 import { readFile } from 'node:fs/promises'
+import { Config } from '../config.js'
 
 // These are loader/registration, pure request-lifecycle and static contract tests.
 // They do not emulate React, render a DOM, or claim live-host/UI verification.
@@ -10,15 +11,23 @@ const locales = Object.fromEntries(await Promise.all(['en', 'zh'].map(async lang
 const plain = value => JSON.parse(JSON.stringify(value))
 const response = value => ({ ok: true, value: { commandId: 'fictional-command', result: { kind: value.ok ? 'success' : 'error', text: JSON.stringify(value) } } })
 const tick = () => new Promise(resolve => setImmediate(resolve))
+function namespace(root = '/fictional/vault', revision = 0) {
+  return { ns: 'ctxkit', revision, value: { root, enabled: false }, schema: { uid: 1, refs: { 1: { type: 'object', dict: { root: 2, enabled: 3 } }, 2: { type: 'string' }, 3: { type: 'boolean' } } } }
+}
 
-function fixture() {
+function fixture({ settings = true, picker = true } = {}) {
   let bundle, dictionaries, execute = async () => response({ ok: true, results: [], total: 0 })
+  let describe = async () => ({ ok: true, value: { writable: true, namespaces: [namespace()] } }), update = async () => ({ ok: true, value: namespace('/fictional/new', 1) });
+  let list = async () => ({ ok: true, value: { path: '/fictional', home: '/fictional', crumbs: [], entries: [], truncated: false } }), pick = async () => ({ ok: true, value: null });
+  const settingsCalls = [], folderCalls = [];
+  const settingsService = { describe(...args) { settingsCalls.push(['describe', ...args]); return describe(...args) }, update(...args) { settingsCalls.push(['update', ...args]); return update(...args) } };
+  const pickerService = { list(...args) { folderCalls.push(['list', ...args]); return list(...args) }, pick(...args) { folderCalls.push(['pick', ...args]); return pick(...args) } };
   const timers = new Map(), calls = [], registrations = [], disposers = [], events = new Map()
   let timerId = 0
   vm.runInNewContext(source, {
     window: { __ModuleLoader__: { load(value) { assert.equal(bundle, undefined); bundle = value } } },
     AbortController,
-    setTimeout(fn, delay) { assert.equal(delay, 15000); const id = ++timerId; timers.set(id, fn); return id },
+    setTimeout(fn, delay) { assert.ok([15000, 120000].includes(delay)); const id = ++timerId; timers.set(id, fn); return id },
     clearTimeout(id) { timers.delete(id) },
   })
   assert.equal(bundle.id, 'ctxkit-dsh')
@@ -30,6 +39,7 @@ function fixture() {
   assert.equal(timers.size, 0, 'factory must not start resources')
   const own = dispose => { if (typeof dispose === 'function') disposers.push(dispose); return dispose }
   const ctx = {
+    get(name) { return name === 'remote.settings' ? settings ? settingsService : undefined : name === 'remote.directoryPicker' ? picker ? pickerService : undefined : undefined },
     effect(fn) { return own(fn()) },
     on(name, fn) { events.set(name, fn); return own(() => events.delete(name)) },
     locale: {
@@ -47,7 +57,8 @@ function fixture() {
   }
   plugin.apply(ctx)
   const injected = registrations.find(row => row.options.name === 'main').options.inject()
-  return { plugin, registrations, dictionaries, calls, events, timers, injected,
+  return { plugin, registrations, dictionaries, calls, events, timers, injected, settingsCalls, folderCalls,
+    setDescribe(fn) { describe = fn }, setUpdate(fn) { update = fn }, setList(fn) { list = fn }, setPick(fn) { pick = fn },
     setExecute(fn) { execute = fn }, dispose() { [...disposers].reverse().forEach(fn => fn()) } }
 }
 
@@ -165,4 +176,179 @@ test('static UX/security contracts retain scope keys, plain text, labels and red
   assert.match(source, /'aria-pressed'/)
   assert.match(source, /name: 'sidebar\.panellist'/)
   assert.doesNotMatch(source, /action: '(pause|retry|configure|write)'/)
+})
+
+test('storage settings remain optional and never suppress the existing sidebar', async () => {
+  const f = fixture({ settings: false, picker: false }), values = []
+  assert.deepEqual(plain(f.plugin.inject), ['slots', 'locale', 'remote', 'remote.commands'])
+  assert.equal(f.registrations.length, 2)
+  f.injected.startStorage({ action: 'load' }, value => values.push(value)); await tick()
+  assert.deepEqual(plain(values), [{ ok: false, state: 'unavailable', diagnostic: 'CTXKIT_SETTINGS_CLIENT_SERVICE_MISSING' }])
+  assert.equal(f.settingsCalls.length, 0); f.dispose()
+})
+
+test('load projects only the exact native entry descriptor and handles read-only profiles', async () => {
+  const f = fixture(), values = []
+  f.setDescribe(async () => ({ ok: true, value: { writable: false, namespaces: [
+    { ...namespace('/secret-other-plugin'), ns: 'other', value: { token: 'DO_NOT_RETAIN' } }, namespace(),
+  ] } }))
+  f.injected.startStorage({ action: 'load' }, value => values.push(value)); await tick()
+  assert.deepEqual(plain(values), [{ ok: true, writable: false, descriptor: { ns: 'ctxkit', root: '/fictional/vault', enabled: false, revision: 0 } }])
+  assert.doesNotMatch(JSON.stringify(values), /DO_NOT_RETAIN|secret-other-plugin/)
+  assert.deepEqual(f.settingsCalls, [['describe']]); assert.equal(f.calls.length, 0); f.dispose()
+})
+
+test('unknown, ambiguous or incompatible settings namespaces never become editable', async () => {
+  const f = fixture()
+  for (const namespaces of [[{ ...namespace(), ns: 'ctxkit-other' }], [namespace(), namespace()], [{ ...namespace(), schema: {} }]]) {
+    f.setDescribe(async () => ({ ok: true, value: { writable: true, namespaces } })); let value
+    f.injected.startStorage({ action: 'load' }, v => { value = v }); await tick()
+    assert.equal(value.state, 'unavailable')
+  }
+  f.dispose()
+})
+
+test('explicit native settings save changes only root and enabled false with expected revision', async () => {
+  const f = fixture(), values = [], epoch = f.injected.hooks.libraryEpoch
+  f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new', allowedWorkspaces: ['ignored'], enabled: true }, v => values.push(v)); await tick()
+  assert.deepEqual(plain(f.settingsCalls), [['update', 'ctxkit', { root: '/fictional/new', enabled: false }, 0]])
+  assert.equal(values[0].saved, true); assert.equal(epoch.getSnapshot(), 1)
+  assert.equal(f.calls.length, 0); assert.equal(f.folderCalls.length, 0); f.dispose()
+})
+
+test('save validates namespace, revision and absolute path before dispatch', async () => {
+  const f = fixture()
+  for (const request of [{ root: '~/vault' }, { root: 'relative/path' }, { revision: undefined }, { ns: 'other' }, { root: '' }, { root: '/bad\npath' }]) {
+    let value
+    f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional', ...request }, v => { value = v }); await tick()
+    assert.equal(value.state, 'invalid')
+  }
+  assert.equal(f.settingsCalls.length, 0); f.dispose()
+})
+
+test('settings conflicts and rejected paths remain failures without leaking host errors', async () => {
+  const f = fixture()
+  for (const [code, state] of [['settings/conflict', 'conflict'], ['settings/rejected', 'rejected'], ['gateway/forbidden', 'denied'], ['gateway/internal', 'error']]) {
+    let value
+    f.setUpdate(async () => ({ ok: false, error: { code, message: '/private/DO_NOT_RETAIN' } }))
+    f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => { value = v }); await tick()
+    assert.deepEqual(plain(value), { ok: false, state }); assert.doesNotMatch(JSON.stringify(value), /DO_NOT_RETAIN/)
+  }
+  f.dispose()
+})
+
+test('native settings events invalidate library results and prevent stale success', async () => {
+  const f = fixture(), values = []; let finishRead, finishSave
+  f.setExecute(() => new Promise(resolve => { finishRead = resolve }))
+  f.injected.startRead('fictional-session', { action: 'topics' }, v => values.push(v)); await tick()
+  f.setUpdate(() => new Promise(resolve => { finishSave = resolve }))
+  f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => values.push(v)); await tick()
+  f.events.get('settings/document-updated')('other', 10)
+  assert.equal(f.injected.hooks.libraryEpoch.getSnapshot(), 0)
+  f.events.get('settings/document-updated')('ctxkit', 2)
+  assert.equal(f.calls[0][3].aborted, true)
+  finishRead(response({ ok: true, body: 'OLD ROOT' })); finishSave({ ok: true, value: namespace('/fictional/new', 1) }); await tick()
+  assert.deepEqual(plain(values), [{ ok: false, state: 'conflict' }])
+  f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => values.push(v)); await tick()
+  assert.equal(f.settingsCalls.length, 1); f.dispose()
+})
+
+test('saved root and recording state must match the explicit request', async () => {
+  const f = fixture()
+  for (const row of [namespace('/fictional/wrong', 1), { ...namespace('/fictional/new', 1), value: { root: '/fictional/new', enabled: true } }]) {
+    let value; f.setUpdate(async () => ({ ok: true, value: row }))
+    f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => { value = v }); await tick()
+    assert.equal(value.state, 'conflict')
+  }
+  f.dispose()
+})
+
+test('connection change, local cancellation and timeout never accept a late save outcome', async () => {
+  for (const action of ['connection/reset', 'cancel', 'timeout', 'dispose']) {
+    const f = fixture(), values = []; let complete
+    f.setUpdate(() => new Promise(resolve => { complete = resolve }))
+    const cancel = f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => values.push(v)); await tick()
+    if (action === 'cancel') cancel()
+    else if (action === 'timeout') [...f.timers.values()][0]()
+    else if (action === 'dispose') f.dispose()
+    else f.events.get(action)()
+    complete({ ok: true, value: namespace('/fictional/new', 1) }); await tick()
+    assert.deepEqual(plain(values), action === 'timeout' ? [{ ok: false, state: 'error' }] : [])
+    assert.equal(f.timers.size, 0); f.dispose()
+  }
+})
+
+test('folder browser uses native host listing only and never writes configuration', async () => {
+  const f = fixture(), values = []
+  f.setList(async () => ({ ok: true, value: { path: '/fictional', home: '/fictional', crumbs: [{ name: '/', path: '/', hidden: false }],
+    entries: [{ name: 'work', path: '/fictional/work', hidden: false }, { name: '.private', path: '/fictional/.private', hidden: true }, { name: 'bad', path: 'relative' }], truncated: true } }))
+  f.injected.startFolders({ path: '/fictional', canList: true, canPick: true }, v => values.push(v)); await tick()
+  assert.equal(f.folderCalls[0][0], 'list'); assert.equal(f.folderCalls[0][1], '/fictional')
+  assert.ok(f.folderCalls[0][2] instanceof AbortSignal)
+  assert.equal(values[0].entries.length, 2); assert.equal(values[0].truncated, true)
+  assert.equal(f.settingsCalls.length, 0); assert.equal(f.calls.length, 0); f.dispose()
+})
+
+test('native chooser is called only for the exact native capability and ignores cancelled lifetime', async () => {
+  const f = fixture(), values = []; let complete
+  f.setList(async () => ({ ok: false, error: { code: 'directory-picker/unavailable', details: { capability: 'native' } } }))
+  f.setPick(() => new Promise(resolve => { complete = resolve }))
+  const cancel = f.injected.startFolders({ canList: true, canPick: true }, v => values.push(v)); await tick()
+  assert.deepEqual(plain(values), [{ ok: true, nativeWaiting: true }]); assert.equal(f.folderCalls[1][0], 'pick')
+  assert.ok(f.folderCalls[1][1] instanceof AbortSignal)
+  cancel(); assert.equal(f.folderCalls[1][1].aborted, true)
+  complete({ ok: true, value: '/fictional/chosen' }); await tick()
+  assert.equal(values.length, 1); assert.equal(f.settingsCalls.length, 0); f.dispose()
+})
+
+test('native Config JSON reference table is accepted after real serialization', async () => {
+  const f = fixture(), values = []
+  const schema = JSON.parse(JSON.stringify(Config.toJSON()))
+  // Settings projects the two volatile fields. Keep the real Schemastery uid
+  // table and field schemas rather than substituting made-up reference types.
+  const root = schema.refs[schema.uid]
+  root.dict = { root: root.dict.root, enabled: root.dict.enabled }
+  const descriptor = { ns: 'ctxkit', revision: 3, schema, value: { root: '', enabled: false } }
+  f.setDescribe(async () => JSON.parse(JSON.stringify({ ok: true, value: { writable: true, hasDocument: true, namespaces: [descriptor] } })))
+  f.injected.startStorage({ action: 'load' }, value => values.push(value)); await tick()
+  assert.deepEqual(plain(values), [{ ok: true, writable: true, descriptor: { ns: 'ctxkit', revision: 3, root: '', enabled: false } }])
+  f.dispose()
+})
+
+test('settings load diagnostics distinguish each failure without leaking other namespaces or values', async () => {
+  const f = fixture()
+  const badSchema = { ...namespace(), schema: {} }
+  const badValue = { ...namespace(), value: { root: 123, enabled: false } }
+  const cases = [
+    [{ ok: false, error: { code: 'gateway/internal', message: '/PRIVATE/DO_NOT_SHOW', details: { secret: 'DO_NOT_SHOW' } } }, 'CTXKIT_SETTINGS_HOST_FAILED', 'gateway/internal'],
+    [{ ok: false, error: { code: '/PRIVATE/DO_NOT_SHOW' } }, 'CTXKIT_SETTINGS_HOST_FAILED', ''],
+    [{ ok: true, value: {} }, 'CTXKIT_SETTINGS_RESPONSE_INVALID'],
+    [{ ok: true, value: { namespaces: [{ ...namespace(), ns: 'PRIVATE_OTHER_NAMESPACE', value: { password: 'DO_NOT_SHOW' } }] } }, 'CTXKIT_SETTINGS_DESCRIPTOR_MISSING'],
+    [{ ok: true, value: { namespaces: [namespace(), namespace()] } }, 'CTXKIT_SETTINGS_DESCRIPTOR_AMBIGUOUS'],
+    [{ ok: true, value: { namespaces: [badSchema] } }, 'CTXKIT_SETTINGS_SCHEMA_INCOMPATIBLE'],
+    [{ ok: true, value: { namespaces: [badValue] } }, 'CTXKIT_SETTINGS_VALUE_INVALID'],
+  ]
+  for (const [reply, diagnostic, nativeCode] of cases) {
+    let value
+    f.setDescribe(async () => reply)
+    f.injected.startStorage({ action: 'load' }, v => { value = v }); await tick()
+    assert.equal(value.diagnostic, diagnostic)
+    assert.equal(value.nativeCode, nativeCode)
+    assert.doesNotMatch(JSON.stringify(value), /PRIVATE|DO_NOT_SHOW|password/)
+  }
+  f.setDescribe(async () => { throw new Error('/PRIVATE/DO_NOT_SHOW') }); let failure
+  f.injected.startStorage({ action: 'load' }, v => { failure = v }); await tick()
+  assert.equal(failure.diagnostic, 'CTXKIT_SETTINGS_REQUEST_FAILED')
+  assert.doesNotMatch(JSON.stringify(failure), /PRIVATE|DO_NOT_SHOW/)
+  f.dispose()
+})
+
+test('storage UX contracts include no-session placement, explicit save, cancel and accessible errors', () => {
+  assert.ok(source.indexOf('h(Storage, props)') < source.indexOf("!session ? h(Notice"))
+  assert.match(source, /settings\/describe/); assert.match(source, /settings\/update/)
+  assert.match(source, /key: JSON.stringify\(\[epoch, readable, canWrite, canList, canPick\]\)/)
+  assert.match(source, /'aria-describedby': ids/); assert.match(source, /'aria-invalid'/)
+  assert.match(source, /t\('storageCancel'\)/); assert.match(source, /t\('storageSafety'\)/)
+  assert.match(source, /t\('storageReload'\)/); assert.match(source, /t\('storageChoose'\)/)
+  assert.doesNotMatch(source, /createDirectory\(|createWorkspace\(|showDirectoryPicker\(|webkitdirectory/)
 })

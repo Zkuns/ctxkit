@@ -8,7 +8,8 @@
 
 ```text
 plugins/dsh/
-├── index.js              # Cordis bundle 入口
+├── index.js              # Cordis bundle 入口及配置切换生命周期
+├── config.js             # 原生 volatile 配置及目录校验
 ├── adapter.js            # 原生事件、模型、权限、工具与 skill 接入
 ├── library.js            # UI/Agent 共用的有界只读查询
 ├── browser-host.js       # 原生 session command 桥接与可信会话绑定
@@ -22,12 +23,13 @@ plugins/dsh/
 ```
 
 ```sh
+npm --prefix plugins/dsh install --ignore-scripts
 node --test plugins/dsh/tests/*.test.js
 npm --prefix plugins/dsh run check
 npm --prefix plugins/dsh pack --dry-run
 ```
 
-没有 runtime npm 依赖或安装脚本。`native-fs.test.js` 仅在存在 `DSH_INSTALL_DIR` 时解析该安装的真实 Cordis 与 sandbox 文件后端；没有该变量就明确 skip，不偷偷安装 DSH。它用合成 session 和模型测试原生写入，不访问真实 profile、凭据或用户日志。
+无安装脚本；0.3 的原生配置使用与宿主一致的 `@deepseek-ai/schemastery@3.19.0` peer。开发测试先安装该依赖。`DSH_INSTALL_DIR` **只用于开发者运行原生集成测试，不是插件使用配置**；位置设置在上下文库页面操作。原生测试仅在该变量存在时解析已安装的 Cordis、Loader、Settings 和 sandbox 后端；没有该变量就明确 skip，不偷偷安装 DSH。测试用合成 session、模型和隔离的临时配置，不读写真实 profile、凭据或用户日志。
 
 所有核心写入要求 authorizer；DSH 运行时注入原生 fs publisher，单文件版本检查与发布由宿主后端完成。Standalone writer 仅用于隔离的核心测试。不要用替代 server 或 profile 手工编辑绕过插件管理。
 

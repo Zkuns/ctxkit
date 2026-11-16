@@ -1,5 +1,20 @@
 # DSH MVP 验证记录
 
+## 0.3：存储位置设置
+
+日期：2026-11-16；目标 DSH `0.2.2-rc.3`。**101/101 项插件测试、28/28 项 Python 测试通过**，无 skipped；五个 skills、29 份 Markdown 校验通过。
+
+- 原生集成使用安装版 Cordis Loader、SettingsForms、ConfigEditor 和临时虚构 profile/home，不是 stub 配置写入。验证了晚到 Settings、准确 namespace 和序列化 schema、保存 root + enabled:false、保留其他字段、revision 冲突和无效/符号链接/文件路径在保存前拒绝。
+- 在途旧库查询在位置切换时被取消，旧工具和缓冲来源失效，未把旧回合内容写入新库；选择位置不调用模型、不创建或写入知识库。
+- Client 纯请求与静态测试覆盖可选 Settings、不选会话也可设置、精确 namespace 投影、无权限/缺失 provider、冲突/拒绝/未知结果、响应必须匹配请求位置、连接/权限变化隔离、原生目录列表与 native picker 的取消信号。没有模拟 React/DOM 或声称界面验收。
+- 目录列表复用原生 Host picker，客户端只提供自己的有界选择界面；不创建工作区、目录或浏览器本地文件句柄。手动路径输入保留为替代方式。
+- 独立 UI/UX 静态审查修复了 native picker 未传 AbortSignal 的取消问题，并延长交互超时至两分钟；已复核保存回执、访问范围、标签/错误与焦点处理，静态证据下无剩余已识别 P1/P2。
+- 新增 Schema peer 后，文档校验发现误扫描下载依赖的 README；现明确跳过 node_modules 等环境目录，并新增发现范围回归测试，不忽略项目自身文档。
+
+0.3.1 增加精确、无敏感值的不可用诊断。安装返回 applied，随后在现有 GUI 实页复现 `CTXKIT_SETTINGS_DESCRIPTOR_MISSING`：Settings 响应成功，但未返回本插件配置描述符；刷新、升级和单独重载未解决。不能据此宣称设置入口可用。用户已明确授权重启当前 DSH 以排除宿主旧模块缓存，重启后仍需继续验证。
+
+真实目录选择、生产 profile 保存、界面焦点/主题/响应式及真实模型采集需分别验收。本轮没有替用户选择真实存储位置或启用采集。
+
 ## 0.2：浏览入口与 Agent 自主召回
 
 日期：2026-11-16；目标 DSH `0.2.2-rc.3`。**82/82 项插件测试、27/27 项 Python 测试通过**，包括安装版原生 Commands、Cordis/Tools/Skills 和文件沙箱，无 skipped。五个 legacy skills 与 29 份 Markdown 链接校验通过。
@@ -12,7 +27,7 @@
 - 最终 `0.2.0` tarball 已通过 `plugin_manager` 安装，返回 `application: applied`、无插件管理器 warnings。安装版 manifest/client export 已回读；安装的 Client artifact 与源码 SHA-256 一致，语法通过。此客户端为直接交付的 lazy-factory artifact，不依赖重建 DSH shell。
 - 安装后重新访问现有 GUI URL，仍重定向到 Cloudflare Access 登录页。因此亮暗主题、响应式布局、浏览器焦点行为和已有资料阅读流程仍未完成实页验收；不以模拟页面截图替代。此次未配置实际库或整理模型，也未启用真实采集。
 
-原生 command 会把有界查询结果写入 session 审计日志，但不会送入模型聊天历史；查询不修改库。首次启用仍需要手动指定库、工作区范围和模型；浏览页不是设置向导。
+原生 command 会把有界查询结果写入 session 审计日志，但不会送入模型聊天历史；查询不修改库。首次启用仍需要手动指定库、工作区范围和模型；0.2 浏览页不是设置向导。随后用户报告入口未出现；仅重载本插件并刷新后，用户确认已出现。该反馈证明当时入口可见，不等于整个资料阅读流程的自动浏览器验收。
 
 ## 0.1 历史交付记录
 

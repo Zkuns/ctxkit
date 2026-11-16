@@ -1,17 +1,66 @@
 import { Engine } from './engine.js'
 import { createAdapter } from './adapter.js'
 import { registerBrowser } from './browser-host.js'
+import { Config, snapshotConfig, validateStorageRoot } from './config.js'
 
+export { Config }
 export const name = 'ctxkit'
 export const inject = ['llm', 'fs', 'sandboxPolicy', 'tools', 'skills', 'systemPrompt', 'sessions', 'agents']
 
-/** Capture stays opt-in; the read-only browser can explain an unconfigured library. */
+/** Capture stays opt-in. Native Settings persists only the declared volatile fields. */
 export function apply(ctx, config = {}) {
+  validateStorageRoot(snapshotConfig(config).root)
+  // The native config editor invokes this hook before writing its candidate.
+  // Keep host filesystem validation out of the serialized form schema.
+  ctx.on('internal/config', (fiber, next) => {
+    const raw = next()
+    if (fiber === ctx.fiber) validateStorageRoot(snapshotConfig(Config(raw)).root)
+    return raw
+  })
+  const settings = ctx.inject(['settings'], child => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
   ctx.effect(() => {
-    const adapter = createAdapter(ctx, config, Engine)
+    let adapter, commandContext, closeBrowser = () => {}, stopped = false
+    const replaceBrowser = () => {
+      closeBrowser()
+      closeBrowser = () => {}
+      if (!stopped && adapter && commandContext) {
+        closeBrowser = registerBrowser(commandContext, { query: adapter.query })
+      }
+    }
+    const rebuild = () => {
+      if (stopped) return
+      // Cancel the old query before dropping references, tools, buffers and jobs.
+      closeBrowser()
+      closeBrowser = () => {}
+      adapter?.dispose()
+      adapter = undefined
+      const snapshot = snapshotConfig(config)
+      validateStorageRoot(snapshot.root)
+      adapter = createAdapter(ctx, snapshot, Engine)
+      replaceBrowser()
+    }
+    rebuild()
     const browser = ctx.inject(['commands'], child => {
-      child.effect(() => registerBrowser(child, { query: adapter.query }))
+      child.effect(() => {
+        commandContext = child
+        replaceBrowser()
+        return () => {
+          if (commandContext !== child) return
+          commandContext = undefined
+          replaceBrowser()
+        }
+      })
     })
-    return () => { browser.dispose(); adapter.dispose() }
+    const stopUpdates = ctx.on('loader/volatile-update', rebuild)
+    return () => {
+      stopped = true
+      stopUpdates()
+      closeBrowser()
+      adapter?.dispose()
+      browser.dispose()
+      settings.dispose()
+    }
   })
 }

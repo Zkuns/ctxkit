@@ -2,6 +2,7 @@
 """Validate the distributed skills, UI metadata, and local Markdown links."""
 
 import importlib.util
+import os
 from pathlib import Path
 import re
 import sys
@@ -122,6 +123,15 @@ def validate_session_examples():
         fail(example, "example view differs from the bundled template")
 
 
+def repository_markdown(directory):
+    """Visit authored docs, not downloaded dependency or environment trees."""
+    for parent, directories, files in os.walk(directory):
+        directories[:] = [name for name in directories if name not in {"node_modules", ".venv", ".git", "__pycache__"}]
+        for name in files:
+            if name.endswith(".md"):
+                yield Path(parent) / name
+
+
 def main():
     folders = [p for p in (ROOT / "skills").iterdir() if p.is_dir()]
     if {p.name for p in folders} != EXPECTED:
@@ -130,7 +140,7 @@ def main():
         validate_skill(folder)
     docs = [ROOT / "README.md", ROOT / "README.en.md", ROOT / "AGENTS.md"]
     for directory in ("docs", "skills", "examples", "tests", "plugins"):
-        docs.extend((ROOT / directory).rglob("*.md"))
+        docs.extend(repository_markdown(ROOT / directory))
     for path in docs:
         validate_links(path)
     validate_session_examples()
