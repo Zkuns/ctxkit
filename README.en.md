@@ -32,11 +32,13 @@ The new implementation lives in [plugins/dsh](plugins/dsh/README.md) and does no
 
 The first version provides automatic checkpoint extraction, topic/document organization, evidenced relationships, inert skill drafts, and on-demand search/read tools. Markdown is authoritative, with no vector database or extra Python runtime. Writes respect the current session's file policy, detect stale revisions and retain recoverable processing state.
 
-**Capture is inactive by default.** Save an existing host directory in **Context library → Storage location**, without environment variables. Saving a location pauses capture and never moves existing data. Explicitly allowed workspaces and a summarization model are still required before enabling. Installation does not scan all historical conversations or authorize deployment, publishing or generated skill installation.
+**Choose a folder and it is remembered.** Open **Plugins → CtxKit → Context storage directory** and confirm an existing folder on the DSH host. There is no environment variable, path-configuration form or separate Save button. Cancelling leaves the location unchanged; changing folders never moves existing data.
+
+**Capture is inactive by default.** Choosing a folder does not enable capture; changing it pauses existing capture. Workspace scope, summarization model and explicit enablement are separate authorization steps, not prerequisites for choosing storage. Installation does not scan historical conversations or authorize deployment, publishing or generated skill installation.
 
 **Users need not mention CtxKit or ask to search memory.** The agent can proactively retrieve relevant prior work when a normal task depends on history. For manual browsing, open **Context library** in the DSH sidebar to view topics, captured session dossiers and the selected session's processing state.
 
-This is a **0.3 MVP**, providing a native library browser, storage-location settings and a direct proactive-recall tool. Completed turns remain candidate checkpoints, with no shutdown-save guarantee. Retrieval is lexical; deciding when to recall and judging historical claims still require model judgment and current evidence. See the [plugin guide](plugins/dsh/README.md) for configuration and limits.
+This is a **0.4 MVP**, providing a native library browser, a folder chooser in the plugin panel and a direct proactive-recall tool. Completed turns remain candidate checkpoints, with no shutdown-save guarantee. Retrieval is lexical; deciding when to recall and judging historical claims still require model judgment and current evidence. See the [full plugin guide](plugins/dsh/docs/TECHNICAL.md) for capture authorization and limits.
 
 ## Development
 
