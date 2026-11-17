@@ -1,6 +1,6 @@
 {
   "name": "ctxkit-dsh",
-  "version": "0.4.0",
+  "version": "0.5.1",
   "description": "Progressive Markdown context spaces and sourced session checkpoints for DeepSeek Harness.",
   "type": "module",
   "license": "MIT",

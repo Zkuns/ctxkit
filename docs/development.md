@@ -13,7 +13,7 @@ plugins/dsh/
 ├── adapter.js            # 原生事件、模型、权限、工具与 skill 接入
 ├── library.js            # UI/Agent 共用的有界只读查询
 ├── browser-host.js       # 原生 session command 桥接与可信会话绑定
-├── client.js             # 原生侧栏浏览页与插件面板目录选择（lazy-factory artifact）
+├── client.js             # 资料页选目录接入、文件树与 Sessions（lazy-factory artifact）
 ├── contracts.js          # 有界输入和方案校验
 ├── engine.js             # capture / organize / recover 状态机
 ├── vault.js              # Markdown、CAS、journal 与关键词检索
@@ -29,7 +29,7 @@ npm --prefix plugins/dsh run check
 npm --prefix plugins/dsh pack --dry-run
 ```
 
-无安装脚本；0.3 的原生配置使用与宿主一致的 `@deepseek-ai/schemastery@3.19.0` peer。开发测试先安装该依赖。`DSH_INSTALL_DIR` **只用于开发者运行原生集成测试，不是插件使用配置**；目录在插件面板中选择并自动记住；上下文库页不再提供单独的配置表单。原生测试仅在该变量存在时解析已安装的 Cordis、Loader、Settings 和 sandbox 后端；没有该变量就明确 skip，不偷偷安装 DSH。测试用合成 session、模型和隔离的临时配置，不读写真实 profile、凭据或用户日志。
+无安装脚本；0.3 的原生配置使用与宿主一致的 `@deepseek-ai/schemastery@3.19.0` peer。开发测试先安装该依赖。`DSH_INSTALL_DIR` **只用于开发者运行原生集成测试，不是插件使用配置**；0.5 在上下文库中确认目录即原子接入当前工作目录与会话模型政策；不再要求用户另填配置。原生测试仅在该变量存在时解析已安装的 Cordis、Loader、Settings 和 sandbox 后端；没有该变量就明确 skip，不偷偷安装 DSH。测试用合成 session、模型和隔离的临时配置，不读写真实 profile、凭据或用户日志。
 
 所有核心写入要求 authorizer；DSH 运行时注入原生 fs publisher，单文件版本检查与发布由宿主后端完成。Standalone writer 仅用于隔离的核心测试。不要用替代 server 或 profile 手工编辑绕过插件管理。
 

@@ -2,7 +2,7 @@ import { redact, relativePath, sessionKey } from './contracts.js'
 
 // One operation for native UI commands and agent tools. No capture, model, or writer API.
 export const LIBRARY_MAX_BYTES = 24000
-const ACTIONS = new Set(['overview', 'topics', 'sessions', 'status', 'read', 'recall'])
+const ACTIONS = new Set(['overview', 'tree', 'topics', 'sessions', 'status', 'read', 'recall'])
 const KINDS = new Set(['index', 'topic', 'session', 'checkpoint', 'document', 'skill-draft'])
 const JOB_STATES = new Set(['queued', 'capturing', 'captured', 'organizing', 'done', 'skipped', 'error', 'waiting_source', 'paused'])
 const TOPIC = /^topic_[a-z0-9][a-z0-9_-]{0,63}$/
@@ -151,7 +151,7 @@ export function createLibrary(adapter) {
     return { topics: topics.slice(0, 12).map(reference), sessions: sessions.slice(0, 12).map(reference), linksTruncated: topics.length > 12 || sessions.length > 12 }
   }
   async function query(args = {}, context) {
-    if (!adapter.active) return { ok: false, configured: false, state: 'unconfigured', error: 'CTXKIT_UNCONFIGURED' }
+    if (!adapter.active) return { ok: true, configured: false, state: 'setup_required' }
     try {
       guard(context)
       const options = argsOf(args), { action, query: search, offset, limit } = options
@@ -187,6 +187,16 @@ export function createLibrary(adapter) {
           const values = await jobs(context), state = await processing(context)
           const count = kind => files.filter(file => file.metadata.kind === kind).length
           result = { counts: { topics: count('topic'), sessions: count('session'), documents: count('document'), checkpoints: count('checkpoint'), skillDrafts: count('skill-draft'), total: files.length }, jobCounts: countsOf(values), processing: state, readOnly: true }
+        } else if (action === 'tree') {
+          // Files, not synthetic categories: the UI can construct expandable
+          // folders from these already-validated, vault-relative paths. Keep the
+          // normal scanner/authorization and response caps; do not expose bodies,
+          // source/session identifiers or unrelated metadata just to render a tree.
+          const term = search.toLowerCase()
+          const matching = files.filter(file => !term || `${file.path} ${text(file.metadata.title, 180) ?? ''}`.toLowerCase().includes(term))
+          const selected = page(matching, options)
+          result = { ...selected, results: selected.results.map(file => ({ path: file.path, kind: file.metadata.kind,
+            title: text(file.metadata.title, 180) ?? file.path, revision: file.revision })), processing: await processing(context), readOnly: true, untrusted: true }
         } else {
           const kind = action === 'topics' ? 'topic' : action === 'sessions' ? 'session' : null
           const matches = files.filter(file => kind ? file.metadata.kind === kind : file.metadata.kind !== 'index')

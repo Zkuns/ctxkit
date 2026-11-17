@@ -32,13 +32,13 @@ The new implementation lives in [plugins/dsh](plugins/dsh/README.md) and does no
 
 The first version provides automatic checkpoint extraction, topic/document organization, evidenced relationships, inert skill drafts, and on-demand search/read tools. Markdown is authoritative, with no vector database or extra Python runtime. Writes respect the current session's file policy, detect stale revisions and retain recoverable processing state.
 
-**Choose a folder and it is remembered.** Open **Plugins → CtxKit → Context storage directory** and confirm an existing folder on the DSH host. There is no environment variable, path-configuration form or separate Save button. Cancelling leaves the location unchanged; changing folders never moves existing data.
+**Choose storage directly in Context Library.** Open the sidebar page, click **Choose directory**, and confirm an existing folder on the DSH host. No environment variables, path-configuration form or separate Save button.
 
-**Capture is inactive by default.** Choosing a folder does not enable capture; changing it pauses existing capture. Workspace scope, summarization model and explicit enablement are separate authorization steps, not prerequisites for choosing storage. Installation does not scan historical conversations or authorize deployment, publishing or generated skill installation.
+**Confirmation opts the current working directory into new-work capture**, using each session’s selected model for additional summarization calls. The scope and model policy are shown before confirmation. Other and nested workspaces are not implicitly authorized. Cancelling changes nothing; existing files and historical chats are not moved or imported, and session file permissions remain unchanged.
 
-**Users need not mention CtxKit or ask to search memory.** The agent can proactively retrieve relevant prior work when a normal task depends on history. For manual browsing, open **Context library** in the DSH sidebar to view topics, captured session dossiers and the selected session's processing state.
+**Users need not mention CtxKit or ask to search memory.** The agent can proactively retrieve relevant prior work when a normal task depends on history. For manual browsing, open **Context Library** in the DSH sidebar: expand folders and read Markdown in **Files**, or search captured session dossiers in the separate **Sessions** tab.
 
-This is a **0.4 MVP**, providing a native library browser, a folder chooser in the plugin panel and a direct proactive-recall tool. Completed turns remain candidate checkpoints, with no shutdown-save guarantee. Retrieval is lexical; deciding when to recall and judging historical claims still require model judgment and current evidence. See the [full plugin guide](plugins/dsh/docs/TECHNICAL.md) for capture authorization and limits.
+This is a **0.5 MVP**, providing complete folder-based onboarding, a file tree, separate session search and a direct proactive-recall tool. Completed turns remain candidate checkpoints, with no shutdown-save guarantee. Retrieval is lexical; deciding when to recall and judging historical claims still require model judgment and current evidence. See the [full plugin guide](plugins/dsh/docs/TECHNICAL.md) for capture authorization and limits.
 
 ## Development
 

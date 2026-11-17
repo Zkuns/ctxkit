@@ -12,33 +12,23 @@ Work normally in opted-in DSH sessions. Completed turns are checked for durable 
 
 在 DSH 的插件管理中添加本目录（或打包后的 npm tarball）。通过 agent 安装时使用 DSH 的 `plugin_manager`，不要自行重写用户 profile。源码包无依赖安装脚本，不下载 embedding 模型。
 
-安装默认值为 `enabled: false`，没有配置库、工作区与模型时也保持惰性。**安装不等于采集已启用，也不需要用户配置环境变量。**
+安装默认不采集。打开侧栏 **上下文库 / Context Library**，选中真实会话，点击“选择目录”，在宿主目录选择器确认一个已有目录。取消不作修改；没有路径配置表单、环境变量或第二个保存按钮。已有旧版目录可直接“使用此目录”完成接入。
 
-打开 **插件 → CtxKit → 上下文存储目录**，点击“选择目录”，在选择器中确认一个已有目录，插件即自动记住。没有额外的配置表单或保存按钮，也不必先选择会话。取消选择不作修改。这是 **DSH 宿主机器上的目录**，远程浏览器本机的目录不等于服务器目录。推荐专用空目录。
+确认前明确展示当前工作目录与模型政策：**仅此工作目录的新成果**会写入所选库，使用各会话当前选定的模型整理，会产生额外模型调用。目录属于运行 DSH 的机器，不是远程浏览器本机。推荐专用空目录；不导入历史聊天、不搬移旧资料、不覆盖无标记文档。
 
-保存位置使用原生 Settings/configEditor 和版本检查，只更新 `root` 与 `enabled: false`。因此首次保存不会开启采集，修改位置会暂停已有采集；不会迁移、删除或改写旧目录里的资料。并发修改或权限/配置层覆盖会报错，不能当作保存成功。
+原生 Settings/configEditor 在同一个带 revision 的更新里保存 root、enabled:true、allowedWorkspaces:[当前 cwd]、useSessionModel:true、exactWorkspaces:true。没有先存目录再补授权的半完成步骤；更换目录或重新接入会将采集范围设为当前工作目录。实际模型从 Host 中该真实 Session 的 Agent.model.current() 获取，不从显示名称猜测，也不会缺省回退另一个服务商。
 
-采集启用还需要允许的工作区和整理模型，这是与选择存储目录分开的授权步骤；目录控件不要求先填写这些字段，也不替用户选择或修改它们。通过宿主支持的配置编辑机制保存完整配置后，再显式启用；插件不会直接改写 profile 文件。
+浏览仅依赖已选择的目录与授权范围，不再要求采集启用或模型就绪。未完成接入显示正常 setup_required，引导选目录；不会反复把未配置当作执行错误。模型不可用、采集关闭、工作目录未授权或文件权限不足分别报告，不冒充空库或保存成功。
 
-```json
-{
-  "enabled": true,
-  "root": "/absolute/path/to/context-vault",
-  "allowedWorkspaces": ["/absolute/path/to/workspace"],
-  "provider": "your-configured-dsh-provider-id",
-  "model": "your-authorized-model-id"
-}
-```
+Open **Context Library** in the sidebar, choose a host folder, and confirm the displayed current-directory scope and use of session-selected models. One revisioned native Settings update completes onboarding. New eligible work is summarized into this folder; cancelling, browsing folders or opening the page never grants capture. Reading remains available when capture is off. No credentials belong in plugin config.
 
-这些路径、模型名都是占位示例。库与工作区必须已经存在，不能是符号链接；首次使用推荐**专用空库和一个测试工作区**。库中未带 CtxKit 标记的原有文件不会被覆盖，不自动迁移早期 skills 资料。
-
-Open Plugins → CtxKit → Context storage directory. Confirm an existing folder in the host directory chooser and it is automatically remembered, without a separate Save button or environment variables. Browsing or cancelling does not change the location. Native revisioned Settings persists the choice; capture remains off and old data is never migrated. Workspace allowlist, provider/model and enabling capture are separate explicit authorization steps, not prerequisites for choosing storage. No credentials belong in plugin config.
+Advanced compatibility: existing explicit provider/model configurations remain supported when useSessionModel is false. The old subtree workspace behavior remains only when exactWorkspaces is false; new UI confirmations use exact canonical working-directory matching.
 
 ### 权限和数据流 / Permissions and data flow
 
-- 允许的工作区包含其子目录；不要为了方便直接配置整个 home。允许一个工作区，意味着其中合格的新 session 可向**同一个库**贡献知识，且可查询该库全部已整理主题。此 MVP 不是库内多租户 ACL；敏感工作应使用隔离库/profile。
+- 新选择流程只授权当前 canonical 工作目录；不自动授权嵌套或其他工作区。同目录的合格新 session 可向**同一个库**贡献知识，并查询该库全部已整理资料。此 MVP 不是库内多租户 ACL；敏感工作应使用隔离库/profile。
 - root 在当前 session 的可写根目录之外时，不会绕过限制。只读 session 不触发模型整理或写入，但在 allowlist 内仍可查询此库。
-- 文本只发送给显式配置的 DSH 模型路由，没有静默 provider fallback。原始 source 文本只在内存中，有界裁剪并标注省略；持久任务保存来源标识，不复制聊天全文。
+- 文本只发送给用户确认的会话模型政策或兼容的固定 DSH 模型路由，没有静默 provider fallback。原始 source 文本只在内存中，有界裁剪并标注省略；持久任务保存来源标识，不复制聊天全文。
 - 常见 token/private-key 模式会脱敏，但无法保证识别所有敏感信息。启用前应确认输入范围和该模型的数据处理政策。
 - 默认排除子代理、推理块、附件字节、工具参数和 CtxKit 自身工具结果；不会自动扫描全部旧 session。
 
@@ -55,14 +45,14 @@ User-facing use is ordinary task language, not a plugin invocation. The agent ha
 | Tool | Purpose |
 | --- | --- |
 | `recall_context` | Agent 主动召回相关历史、决策和进度，返回有界来源摘录；primary proactive recall |
-| `ctxkit_browse` | 分页浏览主题、会话档案、当前会话处理状态和文档；与浏览页共用查询 |
+| `ctxkit_browse` | 分页浏览文件树、主题、会话档案、当前会话处理状态和文档；与浏览页共用查询 |
 | `ctxkit_search` | 关键词/名称/别名搜索，返回有界摘录和路径；lexical search |
 | `ctxkit_read` | 分页读正文、revision、来源元数据，以及主题双向关系；bounded read |
 | `ctxkit_status` | 当前 session 的处理任务、失败、采集资格及阻断原因；processing readiness/status |
 | `ctxkit_retry` | 在当前 session 内重试已有未完成任务，不扫描其他历史；retry existing pending work |
 | `ctxkit_pause` | 用户要求时暂停/恢复当前 session 的采集；pause/resume recording |
 
-工具和 skill 仅在已配置且属于 allowlist 的调用范围可见；未启用时不会向所有 agent 添加无用工具。自动整理在工作回合后异步执行，最终回答发出并不代表整理已经结束；用 `ctxkit_status` 检查。
+读取工具和 skill 仅在已选择库且属于 allowlist 的调用范围可见；采集关闭不再隐藏已授权的读取能力。写入类操作仍检查采集开关、模型、暂停与文件权限，不能通过重试或恢复绕过未启用状态。自动整理在工作回合后异步执行，最终回答发出并不代表整理已经结束；用 `ctxkit_status` 检查。
 
 Pause clears buffered source immediately and cancels that session's in-flight model request. A paused interval is not backfilled. If saving the pause flag fails, the response explicitly reports `persisted: false`; the in-memory pause still applies until restart. Resuming accepts future work, not permission to replay the paused interval.
 
@@ -70,13 +60,13 @@ Pause clears buffered source immediately and cancels that session's in-flight mo
 
 安装或更新后刷新当前 DSH 页面，在侧栏打开 **“上下文库 / Context library”**。先选中一个真实会话，页面以该会话当前的工作区和权限检查访问范围，不会自行创建会话或扩大授权。
 
-- **主题**：搜索、分页查看主题入口，打开详细文档、操作草稿、关联主题及来源阶段。
-- **会话档案**：查看库中已采集的工作档案，按近期更新排序，进入各阶段记录和关联主题。这不是全部 DSH 聊天列表。
-- **处理状态**：查看当前所选会话的采集资格、处理阶段、失败代码及已保存的 checkpoint。库的主题/档案共享，处理任务不跨会话展示。
+- **文件**：默认展开式文件树，按真实受管理 Markdown 路径显示目录层级；点击文件查看内容。包括主题文档、操作草稿、会话档案、阶段记录与派生 INDEX。列表按路径排序并分页，不偷偷读取库之外的文件。
+- **Sessions**：单独搜索、分页浏览库中已采集的会话档案，按近期更新排序。这不是全部 DSH 聊天列表。
+- 当前会话的采集资格与阻断原因以小状态提示，详细处理状态也可通过工具查看。
 
-未配置、没有记录、无匹配、无权限和读取失败分别显示。资料区域是**只读快照**：点击“刷新视图”获取后续变化；不轮询、不自动重试整理、不安装或执行草稿。存储目录在插件面板中选择：只有在选择器内确认目录才自动记住，浏览文件夹或取消不会改动位置。切换会话/工作区/权限或插件连接时，旧响应与旧文档会失效。正文先使用安全的纯文本 Markdown 阅读；受管理的来源、子文档和关系有独立导航按钮，正文中的任意链接或 HTML 不会执行。
+未配置、没有记录、无匹配、无权限和读取失败分别显示。资料区域是**只读快照**：点击“刷新视图”获取后续变化；不轮询、不自动重试整理、不安装或执行草稿。存储目录直接在资料页选择：只有明确确认才启用当前范围的记录，浏览文件夹或取消不会改动。切换会话/工作区/权限或插件连接时，旧响应与旧文档会失效。正文先使用安全的纯文本 Markdown 阅读；受管理的来源、子文档和关系有独立导航按钮，正文中的任意链接或 HTML 不会执行。
 
-The native sidebar page offers Topics, Session dossiers and Processing tabs, search, pagination, safe document windows and managed-source navigation. It shares the exact bounded Host query with agent tools. The current selected session supplies access context; an empty setup is not presented as an empty successful library.
+The native sidebar page offers an expandable Files tree and a separate Sessions search tab, pagination, safe document windows and managed-source navigation. It shares the exact bounded Host query with agent tools. The current selected session supplies access context; an empty setup is not presented as an empty successful library.
 
 浏览页通过 DSH 原生 session command 调用同一 Host 查询操作，不额外开启 HTTP server。DSH 会将有界查询结果写入该 session 的 command 审计日志（不作为模型聊天消息）；查询不写知识库，也不读取原始聊天全文。
 
@@ -129,7 +119,7 @@ If `.ctxkit/writer.lock` remains after a crash or permission revocation, do not 
 - 索引是关键词检索，不是语义向量搜索；中文按字符及完整查询匹配，质量需要真实案例评估。
 - 模型只能修改完整读过且 revision 匹配的既有文件。已有文件过大/未进入上下文时，不能凭目录摘要覆盖。
 - 来源引用证明可追溯性，不自动证明事实正确；本版本不执行独立事实核验。
-- 0.4 将目录选择移到插件面板，选定后自动记住，替代 0.3 的独立配置表单；仍沿用 DSH Settings/configEditor。0.2 的浏览页沿用 theme/locale/slots。仍没有完整启用向导、知识编辑、删除合并、自动刷新或一键部署操作；不开新服务器、不修改 DSH shell。
+- 0.5 以资料页选目录完成接入，修复只保存位置却无法启用的断层，并改为文件树与 Sessions 双页签。仍沿用原生 Settings/configEditor、theme/locale/slots；没有知识编辑、删除合并、自动刷新或一键部署操作，不开新服务器、不修改 DSH shell。
 - `engines.dsh` 精确限制为已核对的 0.2.2-rc.3；其他版本需重新核对 API 和验收，不能静默放宽。
 
 ## 开发检查 / Development checks

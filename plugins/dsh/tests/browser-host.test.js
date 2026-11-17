@@ -39,11 +39,11 @@ function fakeCommands() {
   return { definitions, commands: { register(definition) { definitions.set(definition.name, definition); return () => definitions.delete(definition.name) } } }
 }
 
-test('inactive library is explicitly unconfigured with zero scope or filesystem access', async () => {
+test('inactive library reports a normal setup state with zero scope or filesystem access', async () => {
   const bomb = () => assert.fail('Inactive adapter accessed a service')
   const library = createLibrary({ active: false, get engine() { bomb() }, get scope() { bomb() } })
   assert.deepEqual(await library.query({ action: 'overview', cwd: '/forged' }, {}),
-    { ok: false, configured: false, state: 'unconfigured', error: 'CTXKIT_UNCONFIGURED' })
+    { ok: true, configured: false, state: 'setup_required' })
 })
 
 test('every action gates reads by trusted current session, not request cwd or root', async t => {

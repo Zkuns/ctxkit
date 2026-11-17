@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
+import { Engine as ActualEngine } from '../engine.js'
 import {
   createAdapter, createGenerator, createPublisher, createScope,
   resolveConfig, createTurnBuffer, appendEvent, bufferText, eventText,
@@ -68,6 +69,11 @@ function fixture(t, config = {}) {
     invoke(name, args, exec) { return tools.get(name).definition.execute(args, exec ?? f.exec) },
   }
   return f
+}
+function sessionModel(f, current) {
+  const agent = { session: f.session, model: { current } }
+  f.ctx.agents = { get: id => id === f.session.id ? agent : undefined }
+  return agent
 }
 function event(seq, type, data) { return { seq, type, data } }
 function user(seq, text, source = 'user') { return event(seq, 'user/message', { role: 'user', content: [{ type: 'text', text }], source: { kind: source } }) }
@@ -451,4 +457,142 @@ test('agent created uses payload.agent; disposal cancels calls and removes all r
   emitTurn(adapter, f.session)
   assert.equal(adapter.engine.turns.length, 0)
   adapter.dispose()
+})
+
+test('capture disabled keeps an authorized library readable without a model or side effects', async t => {
+  const f = fixture(t, { enabled: false, provider: '', model: '' }), adapter = createAdapter(f.ctx, f.input, f.Engine)
+  assert.equal(adapter.active, true)
+  adapter.engine.vault.list = async () => [{ path: 'topics/topic_atlas/OVERVIEW.md', revision: 'r', metadata: { kind: 'topic', id: 'topic_atlas', title: 'Atlas' }, body: 'Known decision.' }]
+  const recalled = await f.invoke('recall_context', { query: 'Atlas' })
+  assert.equal(recalled.ok, true); assert.equal(recalled.results.length, 1)
+  assert.equal((await f.invoke('ctxkit_read', { path: 'topics/topic_atlas/OVERVIEW.md' })).body, 'synthetic knowledge')
+  const status = await f.invoke('ctxkit_status', {})
+  assert.equal(status.configured, true); assert.equal(status.captureEligible, false); assert.equal(status.reason, 'CTXKIT_CAPTURE_DISABLED')
+  emitTurn(adapter, f.session)
+  f.listeners.get('agent/created')({ agent: f.exec.agent })
+  await adapter.idle()
+  await assert.rejects(f.invoke('ctxkit_retry', {}), { code: 'CTXKIT_CAPTURE_DISABLED' })
+  await assert.rejects(f.invoke('ctxkit_pause', { paused: false }), { code: 'CTXKIT_CAPTURE_DISABLED' })
+  assert.equal(adapter.engine.turns.length, 0); assert.equal(adapter.engine.recoveries.length, 0)
+  assert.equal(f.calls.length, 0); assert.equal(f.writes.length, 0); assert.equal(f.warnings.length, 0)
+  await assert.rejects(f.invoke('recall_context', { query: 'Atlas' }, { agent: { session: { id: 'other', header: { cwd: f.outside } } } }), { code: 'CTXKIT_SCOPE_DENIED' })
+  adapter.dispose()
+})
+
+test('session-model capture requires the exact live Agent route and never falls back', async t => {
+  const f = fixture(t, { enabled: true, useSessionModel: true, exactWorkspaces: true })
+  let route
+  const agent = sessionModel(f, () => route), adapter = createAdapter(f.ctx, f.input, f.Engine)
+  assert.equal((await f.invoke('ctxkit_status', {})).reason, 'CTXKIT_MODEL_UNAVAILABLE')
+  emitTurn(adapter, f.session); f.listeners.get('agent/created')({ agent }); await adapter.idle()
+  assert.equal(adapter.engine.turns.length, 0); assert.equal(adapter.engine.recoveries.length, 0)
+  await assert.rejects(f.invoke('ctxkit_retry', {}), { code: 'CTXKIT_MODEL_UNAVAILABLE' })
+  await assert.rejects(f.invoke('ctxkit_pause', { paused: false }), { code: 'CTXKIT_MODEL_UNAVAILABLE' })
+  assert.equal((await f.invoke('ctxkit_search', { query: 'Atlas' })).results.length, 1)
+  const request = { purpose: 'capture', system: 's', user: 'fictional', context: { session: f.session } }
+  for (const invalid of [undefined, {}, { provider: 'p' }, { provider: 'p', model: '' }, { provider: 'p', model: 'x\u0000y' }]) {
+    route = invalid
+    await assert.rejects(adapter.engine.options.generate(request), { code: 'CTXKIT_MODEL_UNAVAILABLE' })
+  }
+  assert.equal(f.calls.length, 0)
+  route = { provider: 'session-provider', model: 'session-model' }
+  assert.equal((await f.invoke('ctxkit_status', {})).captureEligible, true)
+  await adapter.engine.options.generate(request)
+  assert.equal(f.calls[0].provider, 'session-provider'); assert.equal(f.calls[0].model, 'session-model')
+  route = { provider: 'second-provider', model: 'second-model' }
+  await adapter.engine.options.generate(request)
+  assert.equal(f.calls[1].provider, 'second-provider'); assert.equal(f.calls[1].model, 'second-model')
+  agent.session = { ...f.session }
+  await assert.rejects(adapter.engine.options.generate(request), { code: 'CTXKIT_MODEL_UNAVAILABLE' })
+  assert.equal(f.calls.length, 2)
+  adapter.dispose()
+})
+
+test('enabled library without either model mode is browsable but cannot capture or recover', async t => {
+  const f = fixture(t, { enabled: true, provider: '', model: '' }), adapter = createAdapter(f.ctx, f.input, f.Engine)
+  assert.equal((await f.invoke('ctxkit_status', {})).reason, 'CTXKIT_MODEL_UNAVAILABLE')
+  emitTurn(adapter, f.session); await adapter.idle()
+  assert.equal(adapter.engine.turns.length, 0); assert.equal(f.writes.length, 0); assert.equal(f.calls.length, 0)
+  assert.equal((await f.invoke('ctxkit_search', { query: 'Atlas' })).results.length, 1)
+  await assert.rejects(f.invoke('ctxkit_retry', {}), { code: 'CTXKIT_MODEL_UNAVAILABLE' })
+  adapter.dispose()
+})
+
+test('exact workspace consent rejects nested and sibling workspaces while legacy prefix remains', async t => {
+  const f = fixture(t, { exactWorkspaces: true }), nested = join(f.workspace, 'nested-project')
+  mkdirSync(nested)
+  const scope = createScope(f.ctx, resolveConfig(f.input))
+  assert.equal(scope.workspace(f.workspace), f.workspace)
+  for (const cwd of [nested, f.outside]) assert.throws(() => scope.workspace(cwd), { code: 'CTXKIT_SCOPE_DENIED' })
+  const legacy = createScope(f.ctx, resolveConfig({ ...f.input, exactWorkspaces: false }))
+  assert.equal(legacy.workspace(nested), nested)
+  const adapter = createAdapter(f.ctx, f.input, f.Engine)
+  const other = { id: 'nested-session', header: { cwd: nested } }
+  emitTurn(adapter, other); await adapter.idle()
+  assert.equal(adapter.engine.turns.length, 0)
+  await assert.rejects(f.invoke('ctxkit_search', { query: 'Atlas' }, { agent: { session: other } }), { code: 'CTXKIT_SCOPE_DENIED' })
+  adapter.dispose()
+})
+
+test('dynamic-model mode preserves pause, file-policy and disposal fences', async t => {
+  const f = fixture(t, { enabled: true, useSessionModel: true, exactWorkspaces: true })
+  sessionModel(f, () => ({ provider: 'current', model: 'current-model' }))
+  const adapter = createAdapter(f.ctx, f.input, f.Engine)
+  await f.invoke('ctxkit_pause', { paused: true })
+  emitTurn(adapter, f.session); await adapter.idle()
+  assert.equal(adapter.engine.turns.length, 0)
+  await f.invoke('ctxkit_pause', { paused: false })
+  f.setMode('read-only')
+  emitTurn(adapter, f.session, 10); await adapter.idle()
+  assert.equal((await f.invoke('ctxkit_status', {})).reason, 'CTXKIT_READ_ONLY')
+  assert.equal(adapter.engine.turns.length, 0); assert.equal(f.calls.length, 0)
+  f.setMode('workspace-write')
+  emitTurn(adapter, f.session, 20); await adapter.idle()
+  assert.equal(adapter.engine.turns.length, 1)
+  adapter.dispose()
+  emitTurn(adapter, f.session, 30)
+  assert.equal(adapter.engine.turns.length, 1); assert.equal(f.tools.size, 0)
+  await assert.rejects(adapter.engine.options.generate({ system: 's', user: 'u', context: { session: f.session } }))
+  assert.equal(f.calls.length, 0)
+})
+
+test('browse tool accepts the same tree action as the shared library', async t => {
+  const f = fixture(t), adapter = createAdapter(f.ctx, f.input, f.Engine)
+  adapter.engine.vault.list = async () => []
+  assert.match(f.tools.get('ctxkit_browse').definition.parameters.properties.action.description, /tree/)
+  assert.deepEqual(await f.invoke('ctxkit_browse', { action: 'tree' }), await adapter.query({ action: 'tree' }, { session: f.session }))
+  adapter.dispose()
+})
+
+test('confirmed session-model setup captures into the chosen root through installed native filesystem', { skip: !process.env.DSH_INSTALL_DIR }, async t => {
+  const require = createRequire(join(process.env.DSH_INSTALL_DIR, 'package.json'))
+  const load = name => import(pathToFileURL(require.resolve(name)).href)
+  const { Context } = await load('@deepseek-ai/cordis')
+  const { SandboxedFileSystem } = await load('@deepseek-ai/dsh-fs-sandbox')
+  const f = fixture(t, { enabled: true, provider: '', model: '', useSessionModel: true, exactWorkspaces: true })
+  const native = new Context()
+  native.provide('sandboxPolicy', { defaultMode: 'workspace-write', ...f.ctx.sandboxPolicy })
+  const fiber = native.plugin(SandboxedFileSystem, { cwd: f.workspace, diffBasisMaxBytes: 1024 * 1024 })
+  await fiber.await(); t.after(() => native.fiber.dispose())
+  f.ctx.fs = native.fs
+  sessionModel(f, () => ({ provider: 'trusted-session-provider', model: 'trusted-session-model' }))
+  f.ctx.llm.stream = async function* (options) {
+    f.calls.push(options)
+    const payload = JSON.parse(options.messages[0].content[0].text)
+    const result = options.purpose === 'ctxkit:capture'
+      ? { meaningful: true, title: 'Synthetic outcome', summary: 'Synthetic local checks passed.', next: 'Review only.', topicHints: ['Atlas'], facts: [{ text: 'Checks passed.', kind: 'result', evidence: 'observed', sourceSeqs: [payload.allowedSourceSeqs[0]] }] }
+      : { topics: [{ id: 'topic_atlas', title: 'Atlas', aliases: [], scope: 'Fictional project', body: '# Atlas\n\nSynthetic checks passed.', expectedRevision: null }], documents: [], relations: [], note: '' }
+    yield { type: 'text-delta', text: JSON.stringify(result) }
+    yield { type: 'finish', reason: { kind: 'stop' } }
+  }
+  const adapter = createAdapter(f.ctx, f.input, ActualEngine)
+  t.after(async () => { adapter.dispose(); await adapter.engine.queue })
+  emitTurn(adapter, f.session); await adapter.idle()
+  const status = await adapter.engine.status(f.session.id)
+  assert.equal(status.jobs[0]?.status, 'done', JSON.stringify(status))
+  assert.equal(f.calls.length, 2)
+  for (const call of f.calls) { assert.equal(call.provider, 'trusted-session-provider'); assert.equal(call.model, 'trusted-session-model'); assert.deepEqual(call.tools, []) }
+  assert.equal(adapter.engine.vault.root, f.root)
+  assert.match((await adapter.engine.vault.read('topics/topic_atlas/OVERVIEW.md')).body, /Synthetic checks passed/)
+  assert.equal((await f.invoke('recall_context', { query: 'Atlas' })).ok, true)
 })

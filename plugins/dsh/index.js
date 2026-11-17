@@ -1,7 +1,7 @@
 import { Engine } from './engine.js'
 import { createAdapter } from './adapter.js'
 import { registerBrowser } from './browser-host.js'
-import { Config, snapshotConfig, validateStorageRoot } from './config.js'
+import { Config, snapshotConfig, validateStorageConfig } from './config.js'
 
 export { Config }
 export const name = 'ctxkit'
@@ -9,12 +9,12 @@ export const inject = ['llm', 'fs', 'sandboxPolicy', 'tools', 'skills', 'systemP
 
 /** Capture stays opt-in. Native Settings persists only the declared volatile fields. */
 export function apply(ctx, config = {}) {
-  validateStorageRoot(snapshotConfig(config).root)
+  validateStorageConfig(snapshotConfig(config))
   // The native config editor invokes this hook before writing its candidate.
   // Keep host filesystem validation out of the serialized form schema.
   ctx.on('internal/config', (fiber, next) => {
     const raw = next()
-    if (fiber === ctx.fiber) validateStorageRoot(snapshotConfig(Config(raw)).root)
+    if (fiber === ctx.fiber) validateStorageConfig(snapshotConfig(Config(raw)))
     return raw
   })
   const settings = ctx.inject(['settings'], child => {
@@ -37,7 +37,7 @@ export function apply(ctx, config = {}) {
       adapter?.dispose()
       adapter = undefined
       const snapshot = snapshotConfig(config)
-      validateStorageRoot(snapshot.root)
+      validateStorageConfig(snapshot)
       adapter = createAdapter(ctx, snapshot, Engine)
       replaceBrowser()
     }

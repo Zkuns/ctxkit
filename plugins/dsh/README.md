@@ -1,15 +1,15 @@
 # CtxKit
 
-在下方选择 **上下文存储目录**，选定后自动记住，无需环境变量或额外“保存配置”。目录位于运行 DSH 的机器上；取消选择不作修改。
+在侧栏打开 **上下文库 / Context Library**，点击 **选择目录**，确认一个运行 DSH 的机器上的已有目录。
 
-默认不采集。选择目录不会开启采集，更换目录会暂停采集且不搬移旧资料。工作区范围与整理模型的授权是另外一步。
+确认会同时启用**当前工作目录**的新成果记录，并沿用各会话当时选择的模型进行整理（会产生额外模型调用）。无需另填配置或另点保存；取消不作修改，不导入历史聊天，不移动旧资料。选择目录不改变会话本身的文件权限。
 
-已整理资料在侧栏 **上下文库** 中浏览；Agent 可按需召回相关记录。仅处理已授权的新工作，不扫描全部历史或执行生成的操作草稿。
+**文件**页签以可展开文件树显示已整理的 Markdown，点击查看内容；**Sessions** 页签单独搜索会话档案。生成的操作草稿不会自动安装或执行。
 
 ---
 
-Choose the **Context storage directory** below; your choice is remembered automatically. No environment variables or separate Save button. The folder is on the DSH host; cancelling changes nothing.
+Open **Context Library** in the sidebar and choose a directory on the DSH host. Confirmation enables new-work capture for the **current working directory**, using each session’s selected model for additional summarization calls. No separate configuration form or Save button. Cancelling changes nothing; historical chats and old files are not imported or moved. Session file permissions still apply.
 
-Capture is off by default. Choosing a folder does not enable it; changing folders pauses capture without moving old data. Workspace scope and model authorization are separate steps. Browse collected records in **Context library**; the agent can recall relevant context as needed.
+Browse Markdown in the expandable **Files** tree; search captured session dossiers in the separate **Sessions** tab.
 
 [完整使用与技术说明 / Full guide](https://github.com/Zkuns/ctxkit/blob/main/plugins/dsh/docs/TECHNICAL.md)

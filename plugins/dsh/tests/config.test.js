@@ -8,13 +8,14 @@ import { pathToFileURL } from 'node:url'
 import { Config, snapshotConfig, validateStorageRoot } from '../config.js'
 import { Vault } from '../vault.js'
 import { encode } from '../contracts.js'
+import { Engine } from '../engine.js'
 
 const anchor = process.env.DSH_INSTALL_DIR
 const load = async name => import(pathToFileURL(createRequire(join(anchor, 'package.json')).resolve(name)).href)
 
 // A genuine native Loader + Settings + ConfigEditor, with an entirely temporary
 // fictional profile/home/workspace. Never loads the user's profile or model.
-async function nativeFixture(t, { active = false } = {}) {
+async function nativeFixture(t, { active = false, completion = () => '{"meaningful":false}', configOverrides = {} } = {}) {
   const [{ Context }, { Loader }, { mountRootInclude, readProfilePatches }, { ConfigEditor }, { SettingsForms },
     { SandboxedFileSystem }, { default: Tools }, { default: Skills }, { default: SystemPrompt }, { CommandRuntime }] = await Promise.all([
     load('@deepseek-ai/cordis'), load('@deepseek-ai/cordis-plugin-loader'), load('@deepseek-ai/dsh-app-boot'),
@@ -27,7 +28,7 @@ async function nativeFixture(t, { active = false } = {}) {
   await fs.writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'fictional-settings-profile', private: true, dsh: { profile: { bundles: [] } } }))
   const patchPath = join(dir, 'cordis.patch.yml')
   const ordinary = { allowedWorkspaces: [temp], provider: 'fictional', model: 'fictional', maxTokens: 2300, includeSubagents: true }
-  const config = { ...ordinary, root: active ? root : '', enabled: active }
+  const config = { ...ordinary, root: active ? root : '', enabled: active, ...configOverrides }
   const patches = [{ insert: [{ id: 'ctxkit', name: new URL('../index.js', import.meta.url).href, config }] }]
   await fs.writeFile(patchPath, JSON.stringify(patches))
   const includePath = join(dir, 'base.yml')
@@ -35,11 +36,12 @@ async function nativeFixture(t, { active = false } = {}) {
   const ctx = new Context()
   t.after(async () => { await ctx.fiber.dispose(); await fs.rm(temp, { recursive: true, force: true }) })
   let modelCalls = 0
+  const modelRequests = []
   ctx.provide('profileContext', { name: 'fictional', dir, patchPath, home, cwd: temp, installAnchor: join(anchor, 'package.json'), startedBundles: [], overlays: [], telemetryDisabledEnv: undefined })
   ctx.provide('sandboxPolicy', { defaultMode: 'workspace-write', resolve: () => ({ mode: 'workspace-write', workspaceRoot: temp }) })
-  ctx.provide('llm', { async *stream() { modelCalls++; yield { type: 'text-delta', text: '{"meaningful":false}' }; yield { type: 'finish', reason: { kind: 'stop' } } } })
+  ctx.provide('llm', { async *stream(request) { modelCalls++; modelRequests.push(request); yield { type: 'text-delta', text: completion(request) }; yield { type: 'finish', reason: { kind: 'stop' } } } })
   ctx.provide('sessions', {})
-  ctx.provide('agents', {})
+  ctx.provide('agents', { get: id => id === 'fictional-settings-session' ? { session, model: { current: () => ({ provider: 'session-fixture', model: 'session-model' }) } } : undefined })
   for (const [implementation, options] of [[Loader, {}], [SandboxedFileSystem, { cwd: temp }], [Tools, {}], [Skills, {}], [SystemPrompt, { includeRuntimeContext: false }], [CommandRuntime, {}]]) {
     await ctx.plugin(implementation, options).await()
   }
@@ -54,20 +56,20 @@ async function nativeFixture(t, { active = false } = {}) {
   const session = { id: 'fictional-settings-session', header: { cwd: temp, origin: 'user' }, append() { return { seq: 0 } } }
   const execute = async (args = {}) => JSON.parse((await ctx.commands.execute({ session }, '/ctxkit-library ' + JSON.stringify(args), [], new AbortController().signal)).result.text)
   const descriptor = () => ctx.settings.describe().find(item => item.ns === 'ctxkit')
-  return { ctx, entry, temp, root, other, patchPath, ordinary, session, execute, descriptor, modelCalls: () => modelCalls }
+  return { ctx, entry, temp, root, other, patchPath, ordinary, session, execute, descriptor, modelRequests, modelCalls: () => modelCalls }
 }
 
-test('schema defaults preserve supported config and only unwrap root/enabled snapshots', () => {
+test('schema snapshots unwrap the complete atomic directory onboarding selection', () => {
   const config = Config({})
   const plain = snapshotConfig(config)
   assert.equal(config.root.get(), '')
   assert.equal(config.enabled.get(), false)
-  assert.deepEqual(plain, { root: '', enabled: false, allowedWorkspaces: [], provider: '', model: '', maxInputChars: 24000,
+  assert.deepEqual(plain, { root: '', enabled: false, allowedWorkspaces: [], useSessionModel: false, exactWorkspaces: false, provider: '', model: '', maxInputChars: 24000,
     maxEventChars: 4000, maxOutputChars: 24000, maxTokens: 4000, timeoutMs: 60000, maxBufferedSessions: 128,
     maxPendingTurns: 16, maxRecoveryEvents: 2000, includeSubagents: false })
   assert.equal(Config.dict.root.type, 'string')
   assert.equal(Config.dict.enabled.type, 'boolean')
-  assert.deepEqual(Object.entries(Config.dict).filter(([, field]) => field.meta.volatile).map(([key]) => key), ['root', 'enabled'])
+  assert.deepEqual(Object.entries(Config.dict).filter(([, field]) => field.meta.volatile).map(([key]) => key), ['root', 'enabled', 'allowedWorkspaces', 'useSessionModel', 'exactWorkspaces'])
   const ordinary = Config({ allowedWorkspaces: ['/fictional'], provider: 'fake', model: 'fake', maxTokens: 7, includeSubagents: true })
   assert.equal(snapshotConfig(ordinary).maxTokens, 7)
   assert.notEqual(snapshotConfig(ordinary).allowedWorkspaces, ordinary.allowedWorkspaces)
@@ -92,17 +94,18 @@ test('native settings persists root alone, late configuration owns parent, and c
   const f = await nativeFixture(t)
   const first = f.descriptor()
   assert.equal(first.autoGenerate, false)
-  assert.deepEqual(first.value, { root: '', enabled: false })
+  assert.deepEqual(first.value, { root: '', enabled: false, allowedWorkspaces: [f.temp], useSessionModel: false, exactWorkspaces: false })
   const form = first.schema.refs[first.schema.uid]
-  assert.deepEqual(Object.keys(form.dict), ['root', 'enabled'])
+  assert.deepEqual(Object.keys(form.dict), ['root', 'enabled', 'allowedWorkspaces', 'useSessionModel', 'exactWorkspaces'])
   assert.equal(first.schema.refs[form.dict.root].type, 'string')
   const uid = f.entry.fiber.uid
   await f.ctx.settings.update('ctxkit', { root: f.root, enabled: false }, first.revision)
   assert.equal(f.entry.fiber.uid, uid, 'volatile fields must not remount the owner')
   assert.equal(f.entry.fiber.effectiveConfig.root.get(), f.root)
-  assert.deepEqual(f.descriptor().value, { root: f.root, enabled: false })
+  assert.deepEqual(f.descriptor().value, { root: f.root, enabled: false, allowedWorkspaces: [f.temp], useSessionModel: false, exactWorkspaces: false })
   for (const [key, value] of Object.entries(f.ordinary)) assert.deepEqual(f.entry.options.config[key], value)
-  assert.equal((await f.execute()).state, 'unconfigured')
+  assert.equal((await f.execute()).state, 'ready')
+  assert.equal((await f.execute({ action: 'status' })).processing.reason, 'CTXKIT_CAPTURE_DISABLED')
   assert.deepEqual(await fs.readdir(f.root), [])
   assert.equal(f.modelCalls(), 0)
   const saved = await fs.readFile(f.patchPath, 'utf8')
@@ -147,10 +150,12 @@ test('native volatile root swap cancels old browser reads and discards old tools
   const rejected = await reading
   assert.equal(rejected.ok, false)
   assert.doesNotMatch(JSON.stringify(rejected), /Fictional old root only/)
-  assert.equal(f.ctx.tools.definitions().length, 0)
-  assert.equal((await f.execute()).state, 'unconfigured')
+  assert.ok(f.ctx.tools.definitions().some(item => item.name === 'recall_context'))
+  assert.notEqual(f.ctx.tools.definitions().find(item => item.name === 'recall_context'), oldRecall)
+  assert.equal((await f.execute()).state, 'ready')
+  assert.equal((await f.execute({ action: 'status' })).processing.reason, 'CTXKIT_CAPTURE_DISABLED')
   await assert.rejects(() => oldRecall.execute({ query: 'old' }, { agent: { session: f.session }, signal: new AbortController().signal }), /CTXKIT_DISPOSED/)
-  // Explicit test-only native enable with preserved ordinary config, not a GUI feature.
+  // Legacy native enable remains supported with the preserved fixed model configuration.
   await f.ctx.settings.update('ctxkit', { enabled: true }, f.descriptor().revision)
   f.ctx.emit('session/event', f.session, { seq: 2, type: 'turn/end', data: { turn: 1 } })
   const retry = f.ctx.tools.definitions().find(item => item.name === 'ctxkit_retry')
@@ -158,4 +163,62 @@ test('native volatile root swap cancels old browser reads and discards old tools
   assert.equal(f.modelCalls(), 0, 'old buffered source must never be retried into new root')
   assert.equal((await f.execute({ action: 'topics' })).total, 0)
   assert.deepEqual(await fs.readdir(f.other), [])
+})
+
+test('native directory confirmation atomically enables exact scope and publishes new context through native fs', { skip: !anchor }, async t => {
+  const f = await nativeFixture(t, { completion: request => JSON.stringify(request.purpose === 'ctxkit:capture' ? {
+    meaningful: true, title: 'Fictional directory onboarding', summary: 'Fictional local checks passed; no deployment.', next: 'Review the result.', topicHints: ['Atlas'],
+    facts: [{ text: 'Fictional local checks passed.', kind: 'result', evidence: 'observed', sourceSeqs: [2] }],
+  } : { topics: [{ id: 'topic_atlas', title: 'Atlas', aliases: [], scope: 'Fictional example', body: '# Atlas\n\nFictional local checks passed.', expectedRevision: null }], documents: [], relations: [], note: '' }) })
+  assert.deepEqual(await f.execute({ action: 'tree' }), { ok: true, configured: false, state: 'setup_required' })
+  const selected = { root: f.root, enabled: true, allowedWorkspaces: [f.temp], useSessionModel: true, exactWorkspaces: true }
+  const before = f.descriptor()
+  await f.ctx.settings.update('ctxkit', selected, before.revision)
+  const saved = f.descriptor()
+  assert.deepEqual(saved.value, selected)
+  assert.equal(saved.revision, before.revision + 1)
+  assert.equal((await f.execute({ action: 'tree' })).total, 0)
+  const readiness = (await f.execute({ action: 'status' })).processing
+  assert.equal(readiness.captureEligible, true, JSON.stringify(readiness))
+  assert.equal(f.modelCalls(), 0, 'choosing storage must not backfill or invoke the model')
+  const turns = [], original = Engine.prototype.enqueueTurn
+  Engine.prototype.enqueueTurn = function (...args) { const result = original.apply(this, args); turns.push(result); return result }
+  t.after(() => { Engine.prototype.enqueueTurn = original })
+  f.ctx.emit('session/event', f.session, { seq: 0, type: 'turn/start', data: { turn: 1 } })
+  f.ctx.emit('session/event', f.session, { seq: 1, type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'Check fictional Atlas locally.' }] } })
+  f.ctx.emit('session/event', f.session, { seq: 2, type: 'assistant/message', data: { message: { content: [{ type: 'text', text: 'Fictional Atlas local checks passed; nothing was deployed.' }] } } })
+  f.ctx.emit('session/event', f.session, { seq: 3, type: 'turn/end', data: { turn: 1 } })
+  assert.equal(turns.length, 1)
+  const [result] = await Promise.all(turns)
+  assert.equal(result.status, 'done', result.error)
+  assert.equal(f.modelCalls(), 2)
+  assert.ok(f.modelRequests.every(request => request.provider === 'session-fixture' && request.model === 'session-model' && request.tools.length === 0))
+  const tree = await f.execute({ action: 'tree', limit: 50 })
+  assert.ok(tree.results.some(file => file.path === 'topics/topic_atlas/OVERVIEW.md'))
+  assert.ok(tree.results.some(file => file.kind === 'session'))
+  assert.ok(tree.results.some(file => file.kind === 'checkpoint'))
+  const doc = await f.execute({ action: 'read', path: 'topics/topic_atlas/OVERVIEW.md' })
+  assert.match(doc.body, /Fictional local checks passed/)
+  assert.equal(doc.ok, true)
+})
+
+test('invalid dormant runtime limits reject onboarding before the native profile is committed', { skip: !anchor }, async t => {
+  const f = await nativeFixture(t, { configOverrides: { maxInputChars: 1 } })
+  const before = await fs.readFile(f.patchPath, 'utf8'), descriptor = f.descriptor()
+  await assert.rejects(() => f.ctx.settings.update('ctxkit', { root: f.root, enabled: true, allowedWorkspaces: [f.temp], useSessionModel: true, exactWorkspaces: true }, descriptor.revision), /CTXKIT_CONFIG_LIMIT/)
+  assert.equal(await fs.readFile(f.patchPath, 'utf8'), before)
+  assert.deepEqual(f.descriptor().value, descriptor.value)
+  assert.deepEqual(await f.execute({ action: 'tree' }), { ok: true, configured: false, state: 'setup_required' })
+  assert.equal(f.modelCalls(), 0)
+  assert.deepEqual(await fs.readdir(f.root), [])
+})
+
+test('invalid workspace in an atomic selection leaves every native configuration field unchanged', { skip: !anchor }, async t => {
+  const f = await nativeFixture(t)
+  const before = await fs.readFile(f.patchPath, 'utf8'), descriptor = f.descriptor()
+  await assert.rejects(() => f.ctx.settings.update('ctxkit', { root: f.root, enabled: true, allowedWorkspaces: [join(f.temp, 'missing')], useSessionModel: true, exactWorkspaces: true }, descriptor.revision), /CTXKIT_CONFIG_DIRECTORY/)
+  assert.equal(await fs.readFile(f.patchPath, 'utf8'), before)
+  assert.deepEqual(f.descriptor().value, descriptor.value)
+  assert.equal(f.modelCalls(), 0)
+  assert.deepEqual(await fs.readdir(f.root), [])
 })

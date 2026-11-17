@@ -12,12 +12,14 @@ const plain = value => JSON.parse(JSON.stringify(value))
 const response = value => ({ ok: true, value: { commandId: 'fictional-command', result: { kind: value.ok ? 'success' : 'error', text: JSON.stringify(value) } } })
 const tick = () => new Promise(resolve => setImmediate(resolve))
 function namespace(root = '/fictional/vault', revision = 0) {
-  return { ns: 'ctxkit', revision, value: { root, enabled: false }, schema: { uid: 1, refs: { 1: { type: 'object', dict: { root: 2, enabled: 3 } }, 2: { type: 'string' }, 3: { type: 'boolean' } } } }
+  return { ns: 'ctxkit', revision, value: { root, enabled: false, allowedWorkspaces: [], useSessionModel: false, exactWorkspaces: false }, schema: { uid: 1, refs: { 1: { type: 'object', dict: { root: 2, enabled: 3, allowedWorkspaces: 4, useSessionModel: 3, exactWorkspaces: 3 } }, 2: { type: 'string' }, 3: { type: 'boolean' }, 4: { type: 'array', inner: 2 } } } }
 }
 
+const setupPatch = root => ({ root, enabled: true, allowedWorkspaces: ['/fictional/workspace'], useSessionModel: true, exactWorkspaces: true })
+const configured = (root, revision) => ({ ...namespace(root, revision), value: setupPatch(root) })
 function fixture({ settings = true, picker = true, panel = true } = {}) {
   let bundle, dictionaries, execute = async () => response({ ok: true, results: [], total: 0 })
-  let describe = async () => ({ ok: true, value: { writable: true, namespaces: [namespace()] } }), update = async () => ({ ok: true, value: namespace('/fictional/new', 1) });
+  let describe = async () => ({ ok: true, value: { writable: true, namespaces: [namespace()] } }), update = async () => ({ ok: true, value: configured('/fictional/new', 1) });
   let list = async path => ({ ok: true, value: { path: path ?? '/fictional', home: '/fictional', crumbs: [], entries: [], truncated: false } }), pick = async () => ({ ok: true, value: null });
   const settingsCalls = [], folderCalls = [];
   const settingsService = { describe(...args) { settingsCalls.push(['describe', ...args]); return describe(...args) }, update(...args) { settingsCalls.push(['update', ...args]); return update(...args) } };
@@ -57,11 +59,10 @@ function fixture({ settings = true, picker = true, panel = true } = {}) {
   }
   plugin.apply(ctx)
   const main = registrations.find(row => row.options.name === 'main').options.inject()
-  const storage = registrations.find(row => row.options.name === 'plugins.bundle.config')?.options.inject() ?? {}
-  // Read and storage capabilities belong to different native slots. Merge only
-  // in this pure test fixture to retain the independent regression faces.
-  const injected = { ...main, ...storage, hooks: { ...main.hooks, ...storage.hooks } }
-  return { plugin, registrations, dictionaries, calls, events, timers, injected, main, storage, settingsCalls, folderCalls,
+  const panelFace = registrations.find(row => row.options.name === 'plugins.bundle.config')?.options.inject?.() ?? {}
+  // The Library now owns both read and setup faces; the plugin panel only guides.
+  const storage = main, injected = main
+  return { plugin, registrations, dictionaries, calls, events, timers, injected, main, storage, panelFace, settingsCalls, folderCalls,
     setDescribe(fn) { describe = fn }, setUpdate(fn) { update = fn }, setList(fn) { list = fn }, setPick(fn) { pick = fn },
     setExecute(fn) { execute = fn }, dispose() { [...disposers].reverse().forEach(fn => fn()) } }
 }
@@ -76,9 +77,9 @@ test('lazy React-only artifact registers native slots, synchronized locales and 
   assert.equal(storage.options.key, 'ctxkit-dsh')
   assert.equal(sidebar.options.id, 'ctxkit-library')
   assert.equal(sidebar.options.label(), 'Context library')
-  assert.equal(f.main.startStorage, undefined)
-  assert.equal(f.main.startChoosing, undefined)
-  assert.equal(f.storage.startRead, undefined)
+  assert.equal(typeof f.main.startStorage, 'function')
+  assert.equal(typeof f.main.startChoosing, 'function')
+  assert.equal(f.panelFace.startStorage, undefined)
   assert.equal(typeof f.storage.startChoosing, 'function')
   for (const lang of ['en', 'zh']) { assert.deepEqual(plain(f.dictionaries[lang]), locales[lang].library); assert.ok(locales[lang].meta.title) }
   assert.deepEqual(Object.keys(locales.en.library), Object.keys(locales.zh.library))
@@ -205,7 +206,7 @@ test('load projects only the exact native entry descriptor and handles read-only
     { ...namespace('/secret-other-plugin'), ns: 'other', value: { token: 'DO_NOT_RETAIN' } }, namespace(),
   ] } }))
   f.injected.startStorage({ action: 'load' }, value => values.push(value)); await tick()
-  assert.deepEqual(plain(values), [{ ok: true, writable: false, descriptor: { ns: 'ctxkit', root: '/fictional/vault', enabled: false, revision: 0 } }])
+  assert.deepEqual(plain(values), [{ ok: true, writable: false, descriptor: { ns: 'ctxkit', root: '/fictional/vault', enabled: false, revision: 0, allowedWorkspaces: [], useSessionModel: false, exactWorkspaces: false } }])
   assert.doesNotMatch(JSON.stringify(values), /DO_NOT_RETAIN|secret-other-plugin/)
   assert.deepEqual(f.settingsCalls, [['describe']]); assert.equal(f.calls.length, 0); f.dispose()
 })
@@ -220,10 +221,10 @@ test('unknown, ambiguous or incompatible settings namespaces never become editab
   f.dispose()
 })
 
-test('explicit native settings save changes only root and enabled false with expected revision', async () => {
+test('explicit native settings setup atomically persists only the five consented fields', async () => {
   const f = fixture(), values = [], epoch = f.injected.hooks.libraryEpoch
-  f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new', allowedWorkspaces: ['ignored'], enabled: true }, v => values.push(v)); await tick()
-  assert.deepEqual(plain(f.settingsCalls), [['update', 'ctxkit', { root: '/fictional/new', enabled: false }, 0]])
+  f.injected.startStorage({ action: 'save', workspace: '/fictional/workspace', sessionId: 'fictional-session', ns: 'ctxkit', revision: 0, root: '/fictional/new', allowedWorkspaces: ['ignored'], enabled: true }, v => values.push(v)); await tick()
+  assert.deepEqual(plain(f.settingsCalls), [['update', 'ctxkit', setupPatch('/fictional/new'), 0]])
   assert.equal(values[0].saved, true); assert.equal(epoch.getSnapshot(), 1)
   assert.equal(f.calls.length, 0); assert.equal(f.folderCalls.length, 0); f.dispose()
 })
@@ -232,7 +233,7 @@ test('save validates namespace, revision and absolute path before dispatch', asy
   const f = fixture()
   for (const request of [{ root: '~/vault' }, { root: 'relative/path' }, { revision: undefined }, { ns: 'other' }, { root: '' }, { root: '/bad\npath' }]) {
     let value
-    f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional', ...request }, v => { value = v }); await tick()
+    f.injected.startStorage({ action: 'save', workspace: '/fictional/workspace', sessionId: 'fictional-session', ns: 'ctxkit', revision: 0, root: '/fictional', ...request }, v => { value = v }); await tick()
     assert.equal(value.state, 'invalid')
   }
   assert.equal(f.settingsCalls.length, 0); f.dispose()
@@ -243,7 +244,7 @@ test('settings conflicts and rejected paths remain failures without leaking host
   for (const [code, state] of [['settings/conflict', 'conflict'], ['settings/rejected', 'rejected'], ['gateway/forbidden', 'denied'], ['gateway/internal', 'error']]) {
     let value
     f.setUpdate(async () => ({ ok: false, error: { code, message: '/private/DO_NOT_RETAIN' } }))
-    f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => { value = v }); await tick()
+    f.injected.startStorage({ action: 'save', workspace: '/fictional/workspace', sessionId: 'fictional-session', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => { value = v }); await tick()
     assert.deepEqual(plain(value), { ok: false, state }); assert.doesNotMatch(JSON.stringify(value), /DO_NOT_RETAIN/)
   }
   f.dispose()
@@ -254,22 +255,22 @@ test('native settings events invalidate library results and prevent stale succes
   f.setExecute(() => new Promise(resolve => { finishRead = resolve }))
   f.injected.startRead('fictional-session', { action: 'topics' }, v => values.push(v)); await tick()
   f.setUpdate(() => new Promise(resolve => { finishSave = resolve }))
-  f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => values.push(v)); await tick()
+  f.injected.startStorage({ action: 'save', workspace: '/fictional/workspace', sessionId: 'fictional-session', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => values.push(v)); await tick()
   f.events.get('settings/document-updated')('other', 10)
   assert.equal(f.injected.hooks.libraryEpoch.getSnapshot(), 0)
   f.events.get('settings/document-updated')('ctxkit', 2)
   assert.equal(f.calls[0][3].aborted, true)
-  finishRead(response({ ok: true, body: 'OLD ROOT' })); finishSave({ ok: true, value: namespace('/fictional/new', 1) }); await tick()
+  finishRead(response({ ok: true, body: 'OLD ROOT' })); finishSave({ ok: true, value: configured('/fictional/new', 1) }); await tick()
   assert.deepEqual(plain(values), [{ ok: false, state: 'conflict' }])
-  f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => values.push(v)); await tick()
+  f.injected.startStorage({ action: 'save', workspace: '/fictional/workspace', sessionId: 'fictional-session', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => values.push(v)); await tick()
   assert.equal(f.settingsCalls.length, 1); f.dispose()
 })
 
 test('saved root and recording state must match the explicit request', async () => {
   const f = fixture()
-  for (const row of [namespace('/fictional/wrong', 1), { ...namespace('/fictional/new', 1), value: { root: '/fictional/new', enabled: true } }]) {
+  for (const row of [configured('/fictional/wrong', 1), { ...configured('/fictional/new', 1), value: { root: '/fictional/new', enabled: true } }]) {
     let value; f.setUpdate(async () => ({ ok: true, value: row }))
-    f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => { value = v }); await tick()
+    f.injected.startStorage({ action: 'save', workspace: '/fictional/workspace', sessionId: 'fictional-session', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => { value = v }); await tick()
     assert.equal(value.state, 'conflict')
   }
   f.dispose()
@@ -279,12 +280,12 @@ test('connection change, local cancellation and timeout never accept a late save
   for (const action of ['connection/reset', 'cancel', 'timeout', 'dispose']) {
     const f = fixture(), values = []; let complete
     f.setUpdate(() => new Promise(resolve => { complete = resolve }))
-    const cancel = f.injected.startStorage({ action: 'save', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => values.push(v)); await tick()
+    const cancel = f.injected.startStorage({ action: 'save', workspace: '/fictional/workspace', sessionId: 'fictional-session', ns: 'ctxkit', revision: 0, root: '/fictional/new' }, v => values.push(v)); await tick()
     if (action === 'cancel') cancel()
     else if (action === 'timeout') [...f.timers.values()][0]()
     else if (action === 'dispose') f.dispose()
     else f.events.get(action)()
-    complete({ ok: true, value: namespace('/fictional/new', 1) }); await tick()
+    complete({ ok: true, value: configured('/fictional/new', 1) }); await tick()
     assert.deepEqual(plain(values), action === 'timeout' ? [{ ok: false, state: 'error' }] : [])
     assert.equal(f.timers.size, 0); f.dispose()
   }
@@ -316,14 +317,14 @@ test('native chooser is called only for the exact native capability and ignores 
 test('native Config JSON reference table is accepted after real serialization', async () => {
   const f = fixture(), values = []
   const schema = JSON.parse(JSON.stringify(Config.toJSON()))
-  // Settings projects the two volatile fields. Keep the real Schemastery uid
+  // Settings projects the five volatile setup fields. Keep the real Schemastery uid
   // table and field schemas rather than substituting made-up reference types.
   const root = schema.refs[schema.uid]
-  root.dict = { root: root.dict.root, enabled: root.dict.enabled }
-  const descriptor = { ns: 'ctxkit', revision: 3, schema, value: { root: '', enabled: false } }
+  root.dict = Object.fromEntries(['root', 'enabled', 'allowedWorkspaces', 'useSessionModel', 'exactWorkspaces'].map(key => [key, root.dict[key]]))
+  const descriptor = { ns: 'ctxkit', revision: 3, schema, value: namespace('', 3).value }
   f.setDescribe(async () => JSON.parse(JSON.stringify({ ok: true, value: { writable: true, hasDocument: true, namespaces: [descriptor] } })))
   f.injected.startStorage({ action: 'load' }, value => values.push(value)); await tick()
-  assert.deepEqual(plain(values), [{ ok: true, writable: true, descriptor: { ns: 'ctxkit', revision: 3, root: '', enabled: false } }])
+  assert.deepEqual(plain(values), [{ ok: true, writable: true, descriptor: { ns: 'ctxkit', revision: 3, root: '', enabled: false, allowedWorkspaces: [], useSessionModel: false, exactWorkspaces: false } }])
   f.dispose()
 })
 
@@ -355,12 +356,12 @@ test('settings load diagnostics distinguish each failure without leaking other n
   f.dispose()
 })
 
-test('plugin-panel chooser has one confirmation, no duplicate configuration form and accessible feedback', () => {
+test('Library owns the prominent chooser, one setup confirmation and accessible feedback', () => {
   const page = source.slice(source.indexOf('function Page('), source.indexOf("inject: ['slots'"))
-  assert.doesNotMatch(page, /h\(Storage|startChoosing|startStorage/)
+  assert.match(page, /h\(StorageAccess/)
   assert.match(source, /name: 'plugins\.bundle\.config', key: 'ctxkit-dsh'/)
   assert.match(source, /settings\/describe/); assert.match(source, /settings\/update/)
-  assert.match(source, /key: JSON.stringify\(\[epoch, readable, canWrite, canList, canPick\]\)/)
+  assert.match(source, /key: JSON.stringify\(\[epoch, readable, canWrite, canList, canPick, props.session\?\.id, props.session\?\.cwd, props.session\?\.permission\]\)/)
   assert.match(source, /'aria-describedby': ids/)
   assert.match(source, /'storageSelect'/); assert.match(source, /t\('storageChoose'\)/)
   assert.match(source, /t\('storageCloseBrowse'\)/); assert.match(source, /t\('storageReload'\)/)
@@ -375,7 +376,7 @@ test('plugin-panel chooser has one confirmation, no duplicate configuration form
   assert.doesNotMatch(source, /createDirectory\(|createWorkspace\(|showDirectoryPicker\(|webkitdirectory/)
 })
 
-const choose = (f, values, overrides = {}) => f.storage.startChoosing({ ns: 'ctxkit', revision: 0, path: '/fictional/new', canList: true, canPick: true, ...overrides }, value => values.push(value))
+const choose = (f, values, overrides = {}) => f.storage.startChoosing({ ns: 'ctxkit', revision: 0, workspace: '/fictional/workspace', sessionId: 'fictional-session', path: '/fictional/new', canList: true, canPick: true, ...overrides }, value => values.push(value))
 const updates = f => f.settingsCalls.filter(call => call[0] === 'update')
 const listing = path => ({ ok: true, value: { path, home: '/fictional', entries: [], crumbs: [], truncated: false } })
 
@@ -385,7 +386,7 @@ test('confirming the current listed directory automatically saves exactly one gu
   assert.equal(values.at(-1).path, '/fictional/new')
   assert.equal(updates(f).length, 0, 'opening a chooser does not save')
   actor.confirm('/fictional/new'); await tick()
-  assert.deepEqual(plain(updates(f)), [['update', 'ctxkit', { root: '/fictional/new', enabled: false }, 0]])
+  assert.deepEqual(plain(updates(f)), [['update', 'ctxkit', setupPatch('/fictional/new'), 0]])
   assert.ok(values.some(value => value.saving === true))
   assert.equal(values.at(-1).saved, true)
   assert.equal(values.at(-1).descriptor.root, '/fictional/new')
@@ -420,7 +421,7 @@ test('confirmation cannot name another path or use an old path while navigation 
   actor.confirm('/fictional/new'); actor.confirm('/fictional/next'); await tick()
   assert.equal(updates(f).length, 0)
   finish(listing('/fictional/next')); await tick()
-  f.setUpdate(async () => ({ ok: true, value: namespace('/fictional/next', 1) }))
+  f.setUpdate(async () => ({ ok: true, value: configured('/fictional/next', 1) }))
   actor.confirm('/fictional/next'); await tick()
   assert.equal(updates(f).length, 1)
   assert.equal(updates(f)[0][2].root, '/fictional/next')
@@ -448,7 +449,7 @@ test('native picker success joins the same automatic persistence boundary', asyn
   choose(f, values); await tick()
   assert.deepEqual(f.folderCalls.map(call => call[0]), ['list', 'pick'])
   assert.ok(f.folderCalls[1][1] instanceof AbortSignal)
-  assert.deepEqual(plain(updates(f)), [['update', 'ctxkit', { root: '/fictional/new', enabled: false }, 0]])
+  assert.deepEqual(plain(updates(f)), [['update', 'ctxkit', setupPatch('/fictional/new'), 0]])
   assert.equal(values.at(-1).saved, true); f.dispose()
 })
 
@@ -506,7 +507,7 @@ test('double confirmation and navigation during saving cannot issue a second wri
   assert.equal(updates(f).length, 1); assert.equal(f.folderCalls.length, 1)
   actor.confirm('/fictional/new'); actor.navigate('/fictional/other'); await tick()
   assert.equal(updates(f).length, 1); assert.equal(f.folderCalls.length, 1)
-  finish({ ok: true, value: namespace('/fictional/new', 1) }); await tick()
+  finish({ ok: true, value: configured('/fictional/new', 1) }); await tick()
   assert.equal(values.filter(value => value.saved).length, 1); f.dispose()
 })
 
@@ -533,9 +534,9 @@ test('unknown dispatched save remains blocked across chooser remount until expli
   const actor = choose(f, values); await tick(); actor.confirm('/fictional/new'); await tick()
   actor.cancel()
   assert.equal(f.storage.hooks.storageOutcome.getSnapshot(), true)
-  finish({ ok: true, value: namespace('/fictional/new', 1) }); await tick()
+  finish({ ok: true, value: configured('/fictional/new', 1) }); await tick()
   f.events.get('connection/reset')()
-  f.setDescribe(async () => ({ ok: true, value: { writable: true, namespaces: [namespace('/fictional/new', 1)] } }))
+  f.setDescribe(async () => ({ ok: true, value: { writable: true, namespaces: [configured('/fictional/new', 1)] } }))
   f.storage.startStorage({ action: 'load' }, () => {}); await tick()
   assert.equal(f.storage.hooks.storageOutcome.getSnapshot(), true, 'automatic panel mount/read cannot acknowledge uncertainty')
   const next = choose(f, values, { revision: 1 }); await tick(); next.confirm('/fictional/new'); await tick()
@@ -543,7 +544,7 @@ test('unknown dispatched save remains blocked across chooser remount until expli
   f.storage.startStorage({ action: 'load', acknowledge: true }, value => values.push(value)); await tick()
   assert.equal(f.storage.hooks.storageOutcome.getSnapshot(), false)
   assert.equal(values.at(-1).descriptor.revision, 1)
-  f.setUpdate(async () => ({ ok: true, value: namespace('/fictional/new', 2) }))
+  f.setUpdate(async () => ({ ok: true, value: configured('/fictional/new', 2) }))
   const accepted = choose(f, values, { revision: 1 }); await tick(); accepted.confirm('/fictional/new'); await tick()
   assert.equal(updates(f).length, 2); assert.equal(updates(f)[1][3], 1)
   assert.equal(values.at(-1).saved, true); f.dispose()
@@ -558,7 +559,7 @@ test('chooser timeout keeps an unknown save outcome and never accepts late succe
   assert.equal(values.at(-1).state, 'error')
   assert.equal(f.storage.hooks.storageOutcome.getSnapshot(), true)
   const count = values.length
-  finish({ ok: true, value: namespace('/fictional/new', 1) }); await tick()
+  finish({ ok: true, value: configured('/fictional/new', 1) }); await tick()
   assert.equal(values.length, count); assert.equal(values.some(value => value.saved), false)
   assert.equal(f.timers.size, 0); f.dispose()
 })
@@ -566,7 +567,7 @@ test('chooser timeout keeps an unknown save outcome and never accepts late succe
 test('missing plugin-panel owner does not suppress the read-only library or start settings work', async () => {
   const f = fixture({ panel: false }), values = []
   assert.deepEqual(f.registrations.map(row => row.options.name), ['main', 'sidebar.panellist'])
-  assert.equal(f.storage.startChoosing, undefined)
+  assert.equal(typeof f.storage.startChoosing, 'function')
   f.main.startRead('fictional-session', { action: 'topics' }, value => values.push(value)); await tick()
   assert.equal(values[0].ok, true)
   assert.equal(f.settingsCalls.length, 0); assert.equal(f.folderCalls.length, 0); f.dispose()
@@ -575,7 +576,7 @@ test('missing plugin-panel owner does not suppress the read-only library or star
 test('a synchronous close on native saving feedback prevents deferred persistence', async () => {
   const f = fixture(), values = []; let actor
   f.setPick(async () => ({ ok: true, value: '/fictional/new' }))
-  actor = f.storage.startChoosing({ ns: 'ctxkit', revision: 0, canList: false, canPick: true }, value => {
+  actor = f.storage.startChoosing({ ns: 'ctxkit', revision: 0, workspace: '/fictional/workspace', sessionId: 'fictional-session', canList: false, canPick: true }, value => {
     values.push(value)
     if (value.saving) actor.cancel()
   })
@@ -589,7 +590,7 @@ test('a synchronous close on native saving feedback prevents deferred persistenc
 test('save receipts cannot regress behind the requested revision but allow an equal accepted revision', async () => {
   for (const revision of [2, 3]) {
     const f = fixture(), values = []
-    f.setUpdate(async () => ({ ok: true, value: namespace('/fictional/new', revision) }))
+    f.setUpdate(async () => ({ ok: true, value: configured('/fictional/new', revision) }))
     const actor = choose(f, values, { revision: 3 }); await tick(); actor.confirm('/fictional/new'); await tick()
     assert.equal(updates(f)[0][3], 3)
     if (revision < 3) { assert.equal(values.at(-1).state, 'conflict'); assert.equal(values.some(value => value.saved), false) }
@@ -598,12 +599,134 @@ test('save receipts cannot regress behind the requested revision but allow an eq
   }
 })
 
-test('chooser success requires a matching directory, capture off and an accepted revision', async () => {
-  for (const wrong of [namespace('/fictional/wrong', 1), { ...namespace('/fictional/new', 1), value: { root: '/fictional/new', enabled: true } }, { ...namespace('/fictional/new', 1), revision: '1' }]) {
+test('chooser success requires complete setup and an accepted revision', async () => {
+  for (const wrong of [configured('/fictional/wrong', 1), { ...configured('/fictional/new', 1), value: { root: '/fictional/new', enabled: true } }, { ...configured('/fictional/new', 1), revision: '1' }]) {
     const f = fixture(), values = []
     f.setUpdate(async () => ({ ok: true, value: wrong }))
     const actor = choose(f, values); await tick(); actor.confirm('/fictional/new'); await tick()
     assert.equal(values.at(-1).state, 'conflict')
     assert.equal(values.some(value => value.saved), false); f.dispose()
   }
+})
+
+
+test('flat managed entries form stable nested directories including a managed root index', () => {
+  const f = fixture(), records = [
+    { path: 'topics/topic_alpha/docs/architecture.md', kind: 'document', title: 'Architecture', revision: 'a' },
+    { path: 'sessions/session_beta/checkpoints/cp_one.md', kind: 'checkpoint', title: 'Checkpoint', revision: 'b' },
+    { path: 'topics/topic_alpha/OVERVIEW.md', kind: 'topic', title: 'Alpha', revision: 'c' },
+    { path: 'INDEX.md', kind: 'index', title: 'Library index', revision: 'd' },
+  ]
+  const tree = plain(f.main.buildTree(records))
+  assert.deepEqual(tree.map(node => [node.name, node.kind]), [['sessions', 'directory'], ['topics', 'directory'], ['INDEX.md', 'file']])
+  const alpha = tree[1].children[0]
+  assert.equal(alpha.path, 'topics/topic_alpha')
+  assert.deepEqual(alpha.children.map(node => node.name), ['docs', 'OVERVIEW.md'])
+  assert.deepEqual(alpha.children[0].children[0], { path: records[0].path, name: 'architecture.md', kind: 'file', title: 'Architecture', recordKind: 'document', revision: 'a' })
+  assert.deepEqual(plain(f.main.buildTree([...records].reverse())), tree)
+  assert.equal(records[0].children, undefined, 'constructing a tree does not mutate its source')
+  f.dispose()
+})
+
+test('tree rejects unsafe paths and bounds titles, depth, records and duplicate leaves', () => {
+  const f = fixture()
+  const invalid = ['../INDEX.md', '/INDEX.md', '.ctxkit/jobs/job.md', 'topics//x.md', 'topics/../x.md', 'topics/a/../../x.md', 'secrets/data.md', 'topics/a/file.html', 'topics/a/file.md/evil.md', 'topics/' + 'a/'.repeat(22) + 'b.md']
+  assert.deepEqual(plain(f.main.buildTree(invalid.map(path => ({ path })))), [])
+  const duplicate = f.main.buildTree([{ path: 'INDEX.md', title: 'x'.repeat(1000) }, { path: 'INDEX.md', title: 'ignored' }])
+  assert.equal(duplicate.length, 1); assert.equal(duplicate[0].title.length, 500)
+  const many = f.main.buildTree(Array.from({ length: 75 }, (_, i) => ({ path: 'topics/topic_a/doc_' + i + '.md' })))
+  assert.equal(many[0].children[0].children.length, 50)
+  assert.deepEqual(plain(f.main.buildTree(null)), [])
+  const safeKey = f.main.buildTree([{ path: 'topics/__proto__/OVERVIEW.md', title: '<script>inert title</script>' }])
+  assert.equal(safeKey[0].children[0].name, '__proto__')
+  assert.equal({}.polluted, undefined); assert.equal(f.calls.length, 0); f.dispose()
+})
+
+test('tree requests preserve the Host cursor and can read the managed INDEX through the same bridge', async () => {
+  const f = fixture(), values = []
+  const tree = { ok: true, configured: true, state: 'ready', action: 'tree', results: [{ path: 'INDEX.md', kind: 'index', title: 'Index', revision: 'a' }], offset: 0, limit: 50, total: 23, nextOffset: 1, truncated: true, readOnly: true, untrusted: true }
+  f.setExecute(async () => response(tree))
+  f.main.startRead('fictional-session', { action: 'tree', offset: 0, limit: 50 }, value => values.push(value)); await tick()
+  assert.deepEqual(plain(values), [tree])
+  assert.equal(values[0].nextOffset, 1, 'the Host may return fewer entries than the requested limit')
+  f.main.startRead('fictional-session', { action: 'read', path: 'INDEX.md', offset: 0, limit: 10000 }, () => {}); await tick()
+  assert.equal(JSON.parse(f.calls.at(-1)[1].slice('/ctxkit-library '.length)).path, 'INDEX.md')
+  assert.equal(f.settingsCalls.length, 0); f.dispose()
+})
+
+test('browse setup gate is independent of capture and the chosen model', () => {
+  const f = fixture(), session = { id: 'fictional-session', cwd: '/fictional/workspace' }
+  const descriptor = { root: '/fictional/vault', enabled: false, allowedWorkspaces: ['/fictional/workspace'], useSessionModel: false, exactWorkspaces: true }
+  assert.equal(f.main.canBrowseStorage(descriptor, session), true)
+  assert.equal(f.main.canBrowseStorage({ ...descriptor, root: '' }, session), false)
+  assert.equal(f.main.canBrowseStorage({ ...descriptor, allowedWorkspaces: [] }, session), false)
+  assert.equal(f.main.canBrowseStorage(descriptor, { ...session, cwd: '/fictional/workspace/child' }), false)
+  assert.equal(f.main.canBrowseStorage({ ...descriptor, exactWorkspaces: false }, { ...session, cwd: '/fictional/workspace/child' }), true)
+  assert.equal(f.main.canBrowseStorage({ ...descriptor, exactWorkspaces: false }, { ...session, cwd: '/fictional/workspace-other' }), false)
+  assert.equal(f.main.canBrowseStorage(descriptor, null), false)
+  assert.equal(f.main.canBrowseStorage(undefined, session), false)
+  assert.equal(f.calls.length, 0); f.dispose()
+})
+
+test('legacy chosen root can be explicitly connected without navigating or issuing two writes', async () => {
+  const f = fixture(), values = []
+  const actor = choose(f, values, { existing: true })
+  await tick(); assert.equal(f.folderCalls.length, 0); assert.equal(updates(f).length, 0)
+  actor.confirm('/fictional/other'); await tick(); assert.equal(updates(f).length, 0)
+  actor.confirm('/fictional/new'); actor.confirm('/fictional/new'); await tick()
+  assert.deepEqual(plain(updates(f)), [['update', 'ctxkit', setupPatch('/fictional/new'), 0]])
+  assert.equal(values.at(-1).saved, true); f.dispose()
+})
+
+test('setup without an actual session id or absolute workspace never dispatches', async () => {
+  for (const overrides of [{ sessionId: undefined }, { sessionId: '' }, { workspace: undefined }, { workspace: 'relative' }, { workspace: '' }]) {
+    const f = fixture(), values = []
+    const actor = choose(f, values, { existing: true, ...overrides })
+    actor.confirm('/fictional/new'); await tick()
+    assert.equal(updates(f).length, 0); assert.equal(values.at(-1).state, 'invalid'); f.dispose()
+  }
+})
+
+test('every setup field in the receipt must match the explicit scoped confirmation', async () => {
+  for (const wrong of [{ enabled: false }, { allowedWorkspaces: [] }, { allowedWorkspaces: ['/fictional/other'] }, { allowedWorkspaces: ['/fictional/workspace', '/fictional/other'] }, { useSessionModel: false }, { exactWorkspaces: false }]) {
+    const f = fixture(), values = []
+    f.setUpdate(async () => ({ ok: true, value: { ...configured('/fictional/new', 1), value: { ...setupPatch('/fictional/new'), ...wrong } } }))
+    const actor = choose(f, values); await tick(); actor.confirm('/fictional/new'); await tick()
+    assert.equal(updates(f).length, 1); assert.equal(values.at(-1).state, 'conflict'); assert.equal(values.some(value => value.saved), false); f.dispose()
+  }
+})
+
+test('older Host schemas cannot silently receive incomplete root-only setup', async () => {
+  const f = fixture(), values = [], old = namespace('/fictional/vault', 0)
+  delete old.schema.refs[1].dict.useSessionModel
+  f.setDescribe(async () => ({ ok: true, value: { writable: true, namespaces: [old] } }))
+  f.main.startStorage({ action: 'load' }, value => values.push(value)); await tick()
+  assert.equal(values[0].diagnostic, 'CTXKIT_SETTINGS_SCHEMA_INCOMPATIBLE')
+  assert.equal(updates(f).length, 0); f.dispose()
+})
+
+test('new user setup response is normal onboarding while denied and malformed results remain errors', async () => {
+  const f = fixture(), values = [], onboarding = { ok: true, configured: false, state: 'setup_required', action: 'tree', results: [], offset: 0, limit: 50, total: 0, nextOffset: null, truncated: false, readOnly: true }
+  f.setExecute(async () => response(onboarding))
+  f.main.startRead('fictional-session', { action: 'tree' }, value => values.push(value)); await tick()
+  assert.deepEqual(plain(values), [onboarding]); assert.equal(values[0].error, undefined); f.dispose()
+  assert.ok(source.includes("current.configured === false || ['unconfigured', 'setup_required'].includes(current.state)"))
+  assert.ok(source.includes("body = h(Notice, { t, kind: 'unconfigured' })"))
+})
+
+test('file-first UI uses real disclosure controls, two views and visible scoped consent', () => {
+  assert.ok(source.includes("React.useState('files')"))
+  assert.ok(source.includes("['files', 'sessions'].map"))
+  assert.ok(source.includes("action: tab === 'files' ? 'tree' : 'sessions'"))
+  assert.ok(source.includes("'aria-expanded': opened")); assert.ok(source.includes("'aria-controls': group"))
+  assert.ok(source.includes("className: 'ck-tree-branch'")); assert.ok(source.includes('border-inline-start'))
+  assert.doesNotMatch(source, /role: 'tree'|\['topics', 'sessions', 'status'\]/)
+  assert.ok(source.includes("h(StorageAccess, { ...props, session, onStorage: setStorage })"))
+  assert.ok(source.includes('!canBrowseStorage(storage, session)'))
+  assert.ok(source.includes("className: 'ck-directory-pick'")); assert.ok(source.includes('border:2px dashed'))
+  assert.ok(source.includes("t('setupConsent')")); assert.ok(source.includes("t('setupWorkspace')"))
+  assert.ok(source.includes("t('storageUseExisting')")); assert.ok(source.includes('disabled: !sessionReady'))
+  assert.match(locales.zh.library.setupConsent, /额外模型调用/); assert.match(locales.zh.library.setupConsent, /不导入历史/)
+  assert.doesNotMatch(locales.zh.library.unconfiguredBody, /插件.*面板/)
+  assert.ok(source.includes("CTXKIT_CAPTURE_DISABLED: 'disabled'")); assert.ok(source.includes("CTXKIT_MODEL_UNAVAILABLE: 'modelUnavailable'"))
 })
