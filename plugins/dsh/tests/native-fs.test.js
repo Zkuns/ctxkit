@@ -59,11 +59,15 @@ test('real installed DSH sandbox filesystem publishes the full core pipeline wit
   const publisher = createPublisher(ctx, scope)
   const engine = new Engine({ root, authorize: scope.authorize, publishText: publisher, generate: async ({ purpose }) => JSON.stringify(purpose === 'ctxkit.capture' ? {
     meaningful: true, title: 'Synthetic verification', summary: 'Local synthetic checks passed; deployment did not occur.', next: 'Review prerequisites.', topicHints: ['Atlas'],
+    preferences: [{ id: 'pref_response_format', action: 'set', text: 'Prefer concise bullets.', sourceSeq: 1, quote: 'Prefer concise bullets in future tasks.' }],
     facts: [{ text: 'Synthetic local checks passed.', kind: 'result', evidence: 'observed', sourceSeqs: [2] }],
   } : { topics: [{ id: 'topic_atlas', title: 'Atlas', aliases: [], scope: 'Fictional example', body: '# Atlas\n\nLocal checks passed; no deployment.', expectedRevision: null }], documents: [], relations: [], note: '' }) })
   t.after(async () => { engine.dispose(); await engine.queue })
-  const result = await engine.enqueueTurn({ sessionId: session.id, cwd: root, turn: 1, fromSeq: 1, toSeq: 3, sourceSeqs: [2], text: '[seq:2 tool result]\nSynthetic checks passed.', context: { session } })
+  const result = await engine.enqueueTurn({ sessionId: session.id, cwd: root, turn: 1, fromSeq: 1, toSeq: 3, sourceSeqs: [1, 2], userSources: [{ seq: 1, text: 'Prefer concise bullets in future tasks.' }], text: '[seq:1 user]\nPrefer concise bullets in future tasks.\n[seq:2 tool result]\nSynthetic checks passed.', context: { session } })
   assert.equal(result.status, 'done', result.error)
+  const preferences = await engine.vault.read('USER.md')
+  assert.equal(preferences.metadata.kind, 'user-preferences')
+  assert.match(preferences.body, /Prefer concise bullets/)
   const doc = await engine.vault.read('topics/topic_atlas/OVERVIEW.md')
   assert.equal(doc.metadata.id, 'topic_atlas')
   await assert.rejects(publisher({ relativePath: doc.path, text: 'stale overwrite', context: { session }, expectedRevision: null }), /REVISION_CONFLICT/)
@@ -71,5 +75,6 @@ test('real installed DSH sandbox filesystem publishes the full core pipeline wit
   const next = { sessionId: session.id, cwd: root, turn: 2, fromSeq: 4, toSeq: 6, text: '[seq:5 user]\nDo not write.', sourceSeqs: [5], context: { session } }
   await assert.rejects(engine.enqueueTurn(next), /READ_ONLY/)
   assert.equal((await engine.vault.read(doc.path)).revision, doc.revision)
+  assert.equal((await engine.vault.read('USER.md')).revision, preferences.revision)
   mode = 'workspace-write'
 })

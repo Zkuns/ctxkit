@@ -6,6 +6,8 @@
 
 点击 **在 Finder 中打开** 查看和管理上下文 Markdown，不在网页中展示文件树；**Sessions** 页签单独搜索会话档案。生成的操作草稿不会自动安装或执行。
 
+**用户习惯**：首次识别到明确、跨任务适用的偏好时，在库根目录生成 `USER.md`，与主题和会话档案分开维护。以后可直接要求更正或删除。同库已授权会话自动获得有界偏好快照；不覆盖当前指令、不授予执行权限，也不修改项目 AGENTS 文件。
+
 ---
 
 Open **Context Library** in the sidebar and choose a directory in the native macOS dialog (browser and DSH on the same Mac). Confirmation enables new-work capture for the **current working directory**, using each session’s selected model for additional summarization calls. No separate configuration form or Save button. Cancelling changes nothing; historical chats and old files are not imported or moved. Session file permissions still apply.
@@ -13,3 +15,5 @@ Open **Context Library** in the sidebar and choose a directory in the native mac
 Use **Open in Finder** to browse Markdown; search captured session dossiers in the separate **Sessions** tab.
 
 [完整使用与技术说明 / Full guide](https://github.com/Zkuns/ctxkit/blob/main/plugins/dsh/docs/TECHNICAL.md)
+
+Explicit cross-task preferences live in `USER.md`, created on the first supported preference. Authorized sessions receive a bounded current snapshot automatically. Corrections/removals update current defaults; historical checkpoints remain. No project AGENTS file is changed.

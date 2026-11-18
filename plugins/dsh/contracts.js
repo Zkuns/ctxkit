@@ -54,10 +54,20 @@ export function validateTurn(input) {
     array(input.sourceSeqs, 'sourceSeqs', 2000)
     if (input.sourceSeqs.some(n => !Number.isSafeInteger(n) || n < input.fromSeq || n > input.toSeq)) fail('SOURCE', 'Supplied event sequences must be inside the turn range')
   }
+  if (input.userSources !== undefined) {
+    array(input.userSources, 'userSources', 2000)
+    let total = 0
+    for (const source of input.userSources) {
+      object(source, 'userSource', ['seq', 'text'])
+      if (!Number.isSafeInteger(source.seq) || !input.sourceSeqs?.includes(source.seq)) fail('SOURCE', 'Human source must be a retained event')
+      total += text(source.text, 'userSource.text', 64000).length
+    }
+    if (total > 64000 || new Set(input.userSources.map(s => s.seq)).size !== input.userSources.length) fail('SOURCE', 'Invalid human source budget or duplicate event')
+  }
   return input
 }
 export function validateCapture(raw, input) {
-  object(raw, 'capture', ['meaningful', 'title', 'summary', 'next', 'facts', 'topicHints'])
+  object(raw, 'capture', ['meaningful', 'title', 'summary', 'next', 'facts', 'topicHints', 'preferences'])
   if (typeof raw.meaningful !== 'boolean') fail('INVALID', 'meaningful must be boolean')
   if (!raw.meaningful) return { meaningful: false }
   const out = { meaningful: true, title: text(raw.title, 'title', 180), summary: text(raw.summary, 'summary', 6000), next: text(raw.next, 'next', 3000, true) }

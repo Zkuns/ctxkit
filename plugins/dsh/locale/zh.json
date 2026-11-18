@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "CtxKit 上下文库",
-    "description": "通过系统窗口选择目录，在 Finder 中查看上下文文件。"
+    "description": "自动整理主题、会话进度与明确表达的全局用户偏好。"
   },
   "library": {
     "title": "上下文库",

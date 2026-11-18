@@ -8,7 +8,7 @@
 
 Work normally in opted-in DSH sessions. Completed turns are checked for durable work, captured as sourced checkpoints, then organized into topic overviews, detailed knowledge, evidenced relationships and inert procedure drafts. A tool-free auxiliary model performs extraction and organization. It cannot deploy, publish or execute generated skills.
 
-## 0.6 当前交互 / Current interaction
+## 当前交互 / Current interaction
 
 浏览器和 DSH 在同一台 Mac 时，点击 **选择目录** 直接弹出 **macOS 系统目录窗口**；在系统窗口确认即完成下述接入，取消不保存。不是上传目录，也不再打开网页目录列表。
 
@@ -39,6 +39,21 @@ Advanced compatibility: existing explicit provider/model configurations remain s
 - 文本只发送给用户确认的会话模型政策或兼容的固定 DSH 模型路由，没有静默 provider fallback。原始 source 文本只在内存中，有界裁剪并标注省略；持久任务保存来源标识，不复制聊天全文。
 - 常见 token/private-key 模式会脱敏，但无法保证识别所有敏感信息。启用前应确认输入范围和该模型的数据处理政策。
 - 默认排除子代理、推理块、附件字节、工具参数和 CtxKit 自身工具结果；不会自动扫描全部旧 session。
+
+## 0.7 用户习惯 / User preferences
+
+首次捕获到明确的长期偏好时，会在所选库根目录创建 `USER.md`，而不是改项目的 AGENTS 指令文件。例如用户真实说出“以后默认先给结论，再给依据”，可形成跨任务的表达偏好；单次任务要求、示例、工具输出、助手建议、敏感画像、凭据和执行权限不应成为习惯。
+
+- 沿用 turn/end → capture 链路，不加第三次模型调用。偏好与阶段摘要同批写入；后续主题整理失败不丢已保存的偏好。
+- 每项有稳定 ID、原用户事件 seq、checkpoint 来源及时间。更正和“忘记这项偏好”更新当前档案；删除不清除过去的阶段记录或宿主历史上下文。
+- 模型必须引用本轮直接用户消息的精确短引文；Host 验证来源类型和文本匹配，但语义判断仍可能有误，需要实际使用核对。不根据过往历史扫描或推测补建人物画像。
+- 所有获准访问同一库的会话自动获得当前偏好的有界快照，由 DSH 的原生动态 user-role 上下文记录和刷新。它是不可信历史资料，不替代当前指令，也不能授权执行操作。没有文件就不注入，读取失败省略而不阻断对话。
+- 正文可阅读、在保留首行元数据和条目结构时修改；增删条目建议直接用自然语言提出。无标记同名文件或损坏格式会拒绝覆盖并报告错误。
+- 上限：每轮 6 项变更、32 项活动偏好、64 项无旧文本的删除水位；上下文最终不足 8000 字符，超出部分标记 truncated，可通过已有读取工具按需查看。容量满会报错，不静默丢弃。
+
+“全局”仅指同一授权库，不跨库/工作区访问边界；暂停采集或只读会话仍可按原有授权读取。首次有效偏好出现前没有 USER.md 是正常状态。
+
+USER.md holds explicit cross-task defaults with human provenance. Capture atomically journals preference changes with their checkpoint, then separately organizes topics. Authorized sessions receive a bounded, untrusted user-role snapshot through native prompt context; it is never a permission grant. Corrections/removals affect current defaults, not historical records. Real-model semantic accuracy is not guaranteed by deterministic tests.
 
 ## 日常使用 / Daily use
 
@@ -83,6 +98,7 @@ The native sidebar page offers direct Finder access and a separate Sessions sear
 ```text
 vault/
 ├── INDEX.md
+├── USER.md
 ├── topics/topic_atlas/
 │   ├── OVERVIEW.md
 │   ├── docs/architecture.md

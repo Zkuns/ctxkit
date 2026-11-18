@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "CtxKit context library",
-    "description": "Choose a folder with the system dialog. Open your context files directly in Finder."
+    "description": "Retain topics, session progress and explicit user preferences in Markdown."
   },
   "library": {
     "title": "Context library",

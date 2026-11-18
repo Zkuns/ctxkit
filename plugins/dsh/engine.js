@@ -1,4 +1,5 @@
 import { Vault } from './vault.js'
+import { PREFERENCES_PATH, readPreferences, validatePreferenceChanges, preferenceChange } from './preferences.js'
 import { CAPTURE_SYSTEM, ORGANIZE_SYSTEM } from './prompts.js'
 import { checkpointKey, sessionKey, validateTurn, validateCapture, validatePlan, parseJSON, redact, safeError, fail, hash, encode } from './contracts.js'
 
@@ -56,7 +57,7 @@ export class Engine {
   enqueueTurn(input) {
     validateTurn(input)
     // Copy and redact promptly; don't persist the raw transcript or the live session object.
-    const safe = { ...input, text: redact(input.text), context: { ...input.context, sessionId: input.sessionId } }
+    const safe = { ...input, observedAt: this.now(), text: redact(input.text), userSources: (input.userSources ?? []).map(s => ({ seq: s.seq, text: redact(s.text) })), context: { ...input.context, sessionId: input.sessionId } }
     return this.schedule(async () => {
       const id = checkpointKey(safe)
       if (await this.isPaused(safe.sessionId)) return { id, status: 'paused' }
@@ -64,7 +65,7 @@ export class Engine {
       let job = await this.vault.control(jobPath(id))
       if (job && terminal.has(job.status)) return { id, status: job.status, duplicate: true }
       if (!job) {
-        job = { schema: 1, id, sessionId: safe.sessionId, cwd: safe.cwd, turn: safe.turn, fromSeq: safe.fromSeq, toSeq: safe.toSeq, sourceSeqs: safe.sourceSeqs, status: 'queued', attempts: 0, createdAt: this.now() }
+        job = { schema: 1, id, sessionId: safe.sessionId, cwd: safe.cwd, turn: safe.turn, fromSeq: safe.fromSeq, toSeq: safe.toSeq, sourceSeqs: safe.sourceSeqs, status: 'queued', attempts: 0, createdAt: safe.observedAt }
         await this.saveJob(job, safe.context)
       }
       return this.process(job, safe, safe.context)
@@ -100,17 +101,24 @@ export class Engine {
         await this.saveJob(job, context)
         const existing = await this.vault.maybeRead(`sessions/${sessionKey(job.sessionId)}/SESSION.md`)
         const previous = existing?.body.slice(0, 6000) || ''
-        const capture = validateCapture(await this.invoke('ctxkit.capture', CAPTURE_SYSTEM, {
+        const profile = await this.vault.maybeRead(PREFERENCES_PATH)
+        const userPreferences = readPreferences(profile)
+        const userSources = input.userSources ?? []
+        const raw = await this.invoke('ctxkit.capture', CAPTURE_SYSTEM, {
           source: { sessionId: job.sessionId, turn: job.turn, fromSeq: job.fromSeq, toSeq: job.toSeq },
           allowedSourceSeqs: input.sourceSeqs || job.sourceSeqs || [], previousSessionOverview: previous, text: input.text,
-        }, context), { ...job, sourceSeqs: input.sourceSeqs || job.sourceSeqs })
+          userSources, userPreferences,
+        }, context)
+        const preferences = validatePreferenceChanges(raw.preferences, userSources)
+        const capture = validateCapture(raw, { ...job, sourceSeqs: input.sourceSeqs || job.sourceSeqs })
+        if (preferences.length && !capture.meaningful) fail('INVALID', 'Preference changes require a sourced checkpoint')
         await this.assertActive(job, context)
         if (!capture.meaningful) {
           job.status = 'skipped'
           await this.saveJob(job, context)
           return { id: job.id, status: job.status }
         }
-        await this.capture(job, capture, context)
+        await this.capture(job, capture, context, profile, preferences)
         job.status = 'captured'; job.checkpointPath = stagePath(job)
         await this.saveJob(job, context)
         checkpoint = await this.vault.read(stagePath(job))
@@ -134,12 +142,13 @@ export class Engine {
       return { id: job.id, status: job.status, error: job.error }
     }
   }
-  async capture(job, capture, context) {
+  async capture(job, capture, context, profile = null, preferences = []) {
     const body = `# ${capture.title}\n\n${capture.summary}\n\n## Evidence\n\n` + capture.facts.map(f => `- **${f.kind} / ${f.evidence}** — ${f.text}\n  Source events: ${f.sourceSeqs.join(', ')}`).join('\n\n')
     const metadata = { kind: 'checkpoint', id: job.id, title: capture.title, sessionId: job.sessionId, source: { platform: 'dsh', sessionId: job.sessionId, turn: job.turn, fromSeq: job.fromSeq, toSeq: job.toSeq, sourceSeqs: job.sourceSeqs }, createdAt: this.now(), topicHints: capture.topicHints, next: capture.next, organized: false, topics: [] }
     const checkpoint = { path: stagePath(job), metadata, body, expectedRevision: null }
     const session = await this.sessionChange(job, { path: checkpoint.path, metadata, body }, [])
-    await this.vault.commit([checkpoint, session], context, { sessionId: job.sessionId })
+    const change = preferenceChange(profile, preferences, { source: checkpoint.path, observedAt: job.createdAt, updatedAt: this.now() })
+    await this.vault.commit([checkpoint, session, ...(change ? [change] : [])], context, { sessionId: job.sessionId })
   }
   async sessionChange(job, newest, assignedTopics) {
     const path = `sessions/${sessionKey(job.sessionId)}/SESSION.md`
@@ -231,7 +240,7 @@ export class Engine {
         let input = null
         if (!await this.vault.maybeRead(stagePath(job)) && resolveTurn) {
           const resolved = await resolveTurn(job)
-          if (resolved) input = { ...job, ...resolved, text: redact(resolved.text) }
+          if (resolved) input = { ...job, ...resolved, text: redact(resolved.text), userSources: (resolved.userSources ?? []).map(s => ({ seq: s.seq, text: redact(s.text) })) }
         }
         results.push(await this.process(job, input, context))
       }

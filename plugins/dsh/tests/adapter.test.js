@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url'
 import { Engine as ActualEngine } from '../engine.js'
 import {
   createAdapter, createGenerator, createPublisher, createScope,
-  resolveConfig, createTurnBuffer, appendEvent, bufferText, eventText,
+  resolveConfig, createTurnBuffer, appendEvent, bufferText, bufferUserSources, eventText,
 } from '../adapter.js'
 
 const hash = text => createHash('sha256').update(text).digest('hex')
@@ -34,7 +34,7 @@ function fixture(t, config = {}) {
       const unregister = register(skillProviders, provider.name, provider)
       return () => { unregister(); controller.abort() }
     } },
-    systemPrompt: { section: section => register(sections, section.name, section) },
+    systemPrompt: { section: section => register(sections, section.name, section), context: section => register(sections, section.name, section) },
     sandboxPolicy: { resolve: ({ session }) => ({ mode, workspaceRoot: session.header.cwd, ...policyOverride }) },
     fs: {
       sandboxMode: 'workspace-write',
@@ -116,6 +116,7 @@ test('live turn-end captures only bounded visible text and exact source seqs', a
   assert.equal(turn.sessionId, f.session.id)
   assert.equal(turn.cwd, f.workspace)
   assert.deepEqual(turn.sourceSeqs, [1, 3, 5])
+  assert.deepEqual(turn.userSources, [{ seq: 1, text: 'User-confirmed synthetic decision' }])
   assert.equal(turn.fromSeq, 0); assert.equal(turn.toSeq, 8)
   assert.match(turn.text, /Tests passed/)
   assert.doesNotMatch(turn.text, /PRIVATE|SECRET|RECYCLED|Do not ingest/)
@@ -132,6 +133,8 @@ test('truncation stays bounded and marks omitted source explicitly', () => {
   assert.ok(buffer.sourceSeqs.length < 29)
   assert.equal(buffer.sourceSeqs[0], 1)
   assert.equal(buffer.sourceSeqs.at(-1), 29)
+  assert.deepEqual(bufferUserSources(buffer).map(s => s.seq), buffer.sourceSeqs)
+  assert.equal(buffer.userSeqs.size, buffer.sourceSeqs.length)
   assert.equal(eventText(event(20, 'system/message', { text: 'secret' })), '')
 })
 

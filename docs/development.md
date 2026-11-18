@@ -16,6 +16,8 @@ plugins/dsh/
 ├── browser-host.js       # 原生 session command 桥接与可信会话绑定
 ├── client.js             # 系统目录选择、Finder 打开与 Sessions（lazy-factory artifact）
 ├── contracts.js          # 有界输入和方案校验
+├── preferences.js        # USER.md 正文、直接用户证据、更正与删除水位
+├── preference-context.js # 原生有界 user-role 动态上下文
 ├── engine.js             # capture / organize / recover 状态机
 ├── vault.js              # Markdown、CAS、journal 与关键词检索
 ├── prompts.js            # 无工具提取与整理提示

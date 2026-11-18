@@ -1,7 +1,7 @@
 {
   "name": "ctxkit-dsh",
-  "version": "0.6.7",
-  "description": "Progressive Markdown context spaces and sourced session checkpoints for DeepSeek Harness.",
+  "version": "0.7.0",
+  "description": "Markdown topics, session checkpoints and explicit user preferences for DeepSeek Harness.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -36,11 +36,13 @@
     "icon.svg",
     "README.md",
     "LICENSE",
-    "desktop-host.js"
+    "desktop-host.js",
+    "preferences.js",
+    "preference-context.js"
   ],
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "check": "node --check index.js && node --check config.js && node --check adapter.js && node --check library.js && node --check browser-host.js && node --check client.js && node --check engine.js && node --check vault.js && node --check contracts.js && node --check prompts.js && node --check desktop-host.js"
+    "check": "node --check index.js && node --check config.js && node --check adapter.js && node --check library.js && node --check browser-host.js && node --check client.js && node --check engine.js && node --check vault.js && node --check contracts.js && node --check prompts.js && node --check desktop-host.js && node --check preferences.js && node --check preference-context.js"
   },
   "dsh": {
     "bundle": {
