@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
     const dictionaries = /* LOCALES_START */ {
   "en": {
     "title": "Context library",
-    "intro": "Choose a context directory, browse its files, and find captured session records.",
+    "intro": "Choose a folder with the system dialog. Open your context files directly in Finder.",
     "scope": "Access checked against the selected session",
     "shared": "Only managed context documents are shown. File reads still follow this session’s current permissions.",
     "topics": "Topics",
@@ -34,7 +34,7 @@ window.__ModuleLoader__.load({
     "noSession": "Choose a current session",
     "noSessionBody": "Select an existing session in the sidebar so its workspace and permissions can be checked. No session is created by this page.",
     "unconfigured": "Start your context library",
-    "unconfiguredBody": "Choose a directory above, or confirm the existing directory. Managed files will appear here; use Sessions to search captured work records.",
+    "unconfiguredBody": "Choose a folder above. Your context will be saved there and can be opened in Finder.",
     "denied": "Library access denied",
     "deniedBody": "This session’s workspace or current file permissions do not allow this read. Select an authorized session or ask the administrator to review its access. This page cannot change permissions.",
     "error": "Library could not be loaded",
@@ -81,7 +81,7 @@ window.__ModuleLoader__.load({
     "no_source": "Source unavailable",
     "not_configured": "Configuration incomplete",
     "storage": "Context directory",
-    "storageHelp": "Confirming connects this directory and enables the workspace described below. Existing documents are not moved.",
+    "storageHelp": "Confirm in the system dialog to connect this folder. No file upload or migration.",
     "storageUnset": "No folder chosen",
     "storageReload": "Reload current directory",
     "storageLoading": "Loading saved location…",
@@ -94,17 +94,9 @@ window.__ModuleLoader__.load({
     "storageInvalid": "Choose an existing host directory and a real session with an absolute working directory.",
     "storageRejected": "The host did not accept this directory or workspace. They must exist, must not be symbolic links, and must be permitted.",
     "storageError": "The setup result is unknown and may already have been saved. Reload the current directory before confirming again.",
-    "storageBrowseTitle": "Choose an existing host folder",
-    "storageBrowseHelp": "Opening folders only navigates. Confirm the directory to connect the workspace described above; Cancel changes nothing.",
-    "storageChoose": "Confirm this directory",
-    "storageCloseBrowse": "Cancel",
-    "storageHome": "Host home",
-    "storageHidden": "Show hidden folders",
-    "storageNoFolders": "No visible child folders in this directory.",
-    "storageBrowseError": "Unable to browse host folders. Try Home or cancel and try again.",
-    "storagePickerUnavailable": "The host directory chooser is unavailable on this connection. Cancel and check the host directory service.",
-    "storageNativeWaiting": "Waiting up to two minutes for the folder chooser on the DSH host. Closing this section cancels the request.",
-    "storageBrowseLoading": "Loading host folders…",
+    "storageCloseBrowse": "Cancel selection",
+    "storagePickerUnavailable": "The system folder chooser could not open. This feature requires the DSH host Mac desktop; retry after closing any previous dialog.",
+    "storageNativeWaiting": "Choose a folder in the system window, or cancel there.",
     "storageClientMissing": "This page has no native Settings client service. Refresh the page and check the DSH Remote assembly.",
     "storageHostFailed": "The native Settings API returned a failure. The safe error code below identifies the Host/API problem; no configuration values are included.",
     "storageRequestFailed": "The Settings request failed before a valid response arrived. Check the connection and reload saved settings.",
@@ -116,25 +108,25 @@ window.__ModuleLoader__.load({
     "storageSelect": "Choose directory",
     "storageChange": "Change directory",
     "storageDetails": "Technical details",
-    "files": "Files",
-    "fileSearch": "Find a context file",
-    "fileSearchHint": "Filename, path or title",
+    "files": "Context folder",
     "sessionSearch": "Search sessions",
     "sessionsHelp": "Search captured session dossiers, not all historical DSH chats.",
-    "treeHelp": "Folders reflect managed files on this page. Expand a folder and choose a file to read it. Use pagination to see more files.",
-    "expandFolder": "Expand {name}",
-    "collapseFolder": "Collapse {name}",
-    "storagePickHint": "Choose a folder on the DSH host — no file upload",
+    "storagePickHint": "Opens the macOS folder chooser",
     "setupWorkspace": "Only this working directory",
     "setupConsent": "Record new outcomes only in this working directory, using each session’s current model. This adds model calls. No historical import, document migration or change to session file permissions.",
-    "setupSelectSession": "Select a real session in the sidebar before confirming its workspace. You can still browse available host folders.",
+    "setupSelectSession": "Select a real session in the sidebar to determine the working directory before choosing storage.",
     "storageUseExisting": "Use this directory",
-    "storagePanelGuide": "Open Context library in the sidebar to choose a directory, browse its file tree, and search Sessions.",
-    "modelUnavailable": "Current session model is unavailable"
+    "storagePanelGuide": "Open Context Library in the sidebar to choose a system folder and view its files in Finder.",
+    "modelUnavailable": "Current session model is unavailable",
+    "finderOpen": "Open in Finder",
+    "finderOpening": "Opening Finder…",
+    "finderOpened": "Sent to Finder.",
+    "finderError": "Could not open the configured folder in Finder. Check that it exists on this Mac.",
+    "finderBody": "Browse and manage the Markdown files in Finder using the button above. Session search remains in the Sessions tab."
   },
   "zh": {
     "title": "上下文库",
-    "intro": "选择上下文目录，展开文件阅读，或搜索已积累的会话档案。",
+    "intro": "通过系统窗口选择目录，在 Finder 中查看上下文文件。",
     "scope": "按当前所选会话检查访问权限",
     "shared": "这里只展示受管理的上下文文档；读取仍遵守当前会话的文件权限。",
     "topics": "主题",
@@ -160,7 +152,7 @@ window.__ModuleLoader__.load({
     "noSession": "选择当前会话",
     "noSessionBody": "在侧栏选择一个已有会话，以确认它的工作目录和权限。此页面不会创建新会话。",
     "unconfigured": "从一个目录开始积累上下文",
-    "unconfiguredBody": "在上方选择目录，或确认使用已选目录。接入后，这里会显示受管理的文件树，也可在 Sessions 中搜索会话档案。",
+    "unconfiguredBody": "在上方选择目录。上下文会写入该目录，之后可直接在 Finder 中打开。",
     "denied": "无权读取上下文库",
     "deniedBody": "此会话的工作区或当前文件权限不允许这次读取。请选择已授权会话，或请管理员检查访问范围；此页面不能修改权限。",
     "error": "暂时无法读取上下文库",
@@ -207,7 +199,7 @@ window.__ModuleLoader__.load({
     "no_source": "来源不可用",
     "not_configured": "配置不完整",
     "storage": "上下文目录",
-    "storageHelp": "确认后接入此目录，并启用下方工作目录的成果记录；不搬移已有文档。",
+    "storageHelp": "在系统窗口确认目录即可接入，不上传文件，不搬移已有资料。",
     "storageUnset": "尚未选择目录",
     "storageReload": "重新读取当前目录",
     "storageLoading": "正在读取存储位置…",
@@ -220,17 +212,9 @@ window.__ModuleLoader__.load({
     "storageInvalid": "请选择已有宿主目录，以及有绝对工作目录的真实会话。",
     "storageRejected": "宿主未接受此目录或工作目录。请确认目录存在、不是符号链接，并且允许使用。",
     "storageError": "未能确认接入结果，设置可能已经保存。请重新读取当前目录后再确认。",
-    "storageBrowseTitle": "选择已有宿主目录",
-    "storageBrowseHelp": "打开文件夹只作浏览。确认目录即接入上方所示工作目录；取消不会改动。",
-    "storageChoose": "确认使用此目录",
-    "storageCloseBrowse": "取消",
-    "storageHome": "宿主主目录",
-    "storageHidden": "显示隐藏目录",
-    "storageNoFolders": "此目录下没有可见的子目录。",
-    "storageBrowseError": "暂时无法浏览目录。可返回宿主主目录重试，或取消后重新选择。",
-    "storagePickerUnavailable": "当前连接无法使用宿主目录选择器。请取消并检查宿主目录服务。",
-    "storageNativeWaiting": "正在等待 DSH 宿主上的目录选择窗口（最多两分钟）。关闭此区域会取消请求。",
-    "storageBrowseLoading": "正在读取宿主目录…",
+    "storageCloseBrowse": "取消选择",
+    "storagePickerUnavailable": "无法打开系统目录选择窗口。此功能需要 DSH 所在 Mac 的桌面；请关闭已有选择窗口后重试。",
+    "storageNativeWaiting": "请在弹出的系统窗口中选择目录，或点击取消。",
     "storageClientMissing": "当前页面没有原生 Settings 客户端服务。请刷新页面，并检查 DSH Remote 服务是否加载。",
     "storageHostFailed": "原生 Settings API 返回失败。下方仅显示安全错误码，用于定位宿主或接口问题，不包含任何配置值。",
     "storageRequestFailed": "Settings 请求未取得有效响应。请检查连接后重新读取已保存设置。",
@@ -242,21 +226,21 @@ window.__ModuleLoader__.load({
     "storageSelect": "选择目录",
     "storageChange": "更换目录",
     "storageDetails": "技术详情",
-    "files": "文件",
-    "fileSearch": "查找上下文文件",
-    "fileSearchHint": "文件名、路径或标题",
+    "files": "上下文目录",
     "sessionSearch": "搜索会话",
     "sessionsHelp": "搜索已采集的会话档案，不会扫描全部 DSH 历史聊天。",
-    "treeHelp": "文件夹来自本页受管理的文件。展开目录，点击文件阅读正文；翻页可查看更多文件。",
-    "expandFolder": "展开 {name}",
-    "collapseFolder": "收起 {name}",
-    "storagePickHint": "选择 DSH 宿主上的文件夹，不上传文件",
+    "storagePickHint": "打开 macOS 系统目录选择窗口",
     "setupWorkspace": "仅此工作目录",
     "setupConsent": "只记录此工作目录的新成果，使用各会话当前模型整理，会产生额外模型调用。不导入历史，不搬移文档，不更改会话文件权限。",
-    "setupSelectSession": "确认前请先在侧栏选择真实会话，以确定工作目录；仍可浏览宿主文件夹。",
+    "setupSelectSession": "确认前请先在侧栏选择真实会话，以确定工作目录。",
     "storageUseExisting": "使用此目录",
-    "storagePanelGuide": "在侧栏打开“上下文库”，即可选择目录、展开文件树阅读，并在 Sessions 中搜索会话。",
-    "modelUnavailable": "当前会话模型不可用"
+    "storagePanelGuide": "在侧栏打开上下文库，调用系统窗口选择目录，并在 Finder 中查看文件。",
+    "modelUnavailable": "当前会话模型不可用",
+    "finderOpen": "在 Finder 中打开",
+    "finderOpening": "正在打开 Finder…",
+    "finderOpened": "已发送至 Finder。",
+    "finderError": "无法在 Finder 中打开已配置目录，请确认它仍存在于这台 Mac 上。",
+    "finderBody": "点击上方“在 Finder 中打开”，直接查看和管理 Markdown 文件。会话搜索仍在 Sessions 页签中。"
   }
 } /* LOCALES_END */;
     const NS = 'ctxkit.library';
@@ -293,26 +277,12 @@ window.__ModuleLoader__.load({
 .ctxkit-library .ck-storage { border:1px solid var(--dsw-alias-border-l2); border-radius:12px; padding:20px; margin:24px 0; }
 .ctxkit-library .ck-storage-path { overflow-wrap:anywhere; }
 .ctxkit-library summary { cursor:pointer; min-height:44px; padding-block:8px; }
-.ctxkit-library .ck-folders { border-top:1px solid var(--dsw-alias-border-l2); padding-top:16px; margin-top:20px; }
-.ctxkit-library .ck-folder-list { max-height:260px; overflow:auto; margin:12px 0; }
-.ctxkit-library .ck-folder-list button { text-align:start; width:100%; overflow-wrap:anywhere; }
-.ctxkit-library .ck-folders input[type=checkbox] { min-height:20px; width:20px; }
-.ctxkit-library .ck-folders label { min-height:44px; padding-block:8px; cursor:pointer; }
-.ctxkit-library .ck-folders h3 { margin:0; }
 .ctxkit-library .ck-directory-pick { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; width:100%; min-height:152px; border:2px dashed var(--dsw-alias-border-l2); padding:24px; }
 .ctxkit-library .ck-directory-pick.is-connected { display:inline-flex; flex-direction:row; min-height:44px; width:auto; border-style:solid; border-width:1px; padding:8px 12px; }
 .ctxkit-library .ck-setup-consent { margin:16px 0 8px; overflow-wrap:anywhere; font-size:14px; }
 .ctxkit-library .ck-storage-empty { border:0; padding:0; }
 .ctxkit-library .ck-processing { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; color:var(--dsw-alias-label-secondary); font-size:13px; margin:8px 0; }
 .ctxkit-library .ck-scope summary { cursor:pointer; }
-.ctxkit-library .ck-tree { border:1px solid var(--dsw-alias-border-l2); border-radius:12px; padding:8px; }
-.ctxkit-library .ck-tree-branch { padding-inline-start:18px; border-inline-start:1px solid var(--dsw-alias-border-l2); margin-inline-start:13px; }
-.ctxkit-library .ck-tree-row { display:flex; align-items:center; flex-wrap:wrap; width:100%; min-height:44px; border:0; text-align:start; gap:8px; background:transparent; }
-.ctxkit-library .ck-tree-chevron { width:14px; flex:none; text-align:center; }
-.ctxkit-library .ck-tree-row svg { flex:none; }
-.ctxkit-library .ck-tree-name { overflow-wrap:anywhere; min-width:0; }
-.ctxkit-library .ck-tree-title { overflow-wrap:anywhere; min-width:0; }
-@media(max-width:600px) { .ctxkit-library .ck-tree-branch { padding-inline-start:10px; margin-inline-start:8px; } .ctxkit-library .ck-tree-title { flex-basis:100%; padding-inline-start:30px; } }
 @media(hover:hover) { .ctxkit-library button:not(:disabled):hover { background:var(--dsw-alias-interactive-bg-hover); } }
 @media(pointer:coarse) { .ctxkit-library :is(button,input,select) { min-height:44px; } .ctxkit-library :is(input,select) { font-size:16px; } }
 @media(prefers-reduced-motion:reduce) { .ctxkit-library button { transition:none; } }
@@ -374,9 +344,10 @@ window.__ModuleLoader__.load({
       CTXKIT_SETTINGS_VALUE_INVALID: 'storageValueInvalid',
     };
     const nativeCodeOf = value => typeof value === 'string' && /^[a-z][a-z0-9-]*\/[a-z][a-z0-9-]{0,59}$/.test(value) && value.length <= 90 ? value : '';
+    const desktopCodeOf = value => typeof value === 'string' && /^CTXKIT_DESKTOP_[A-Z0-9_]{1,40}$/.test(value) ? value : '';
     const storageDiagnostic = diagnostic => ({ ...failure('unavailable'), diagnostic });
     function storageFailure(response, describing = false) {
-      const code = response?.error?.code ?? '';
+      const code = String(response?.error?.code ?? '').toLowerCase();
       return failure(code === 'settings/conflict' ? 'conflict' : code === 'settings/rejected' ? 'rejected'
         : /denied|forbidden|unauthorized|permission/.test(code) ? 'denied'
           : describing || /unavailable|not-found|not-implemented/.test(code) ? 'unavailable' : 'error');
@@ -388,48 +359,9 @@ window.__ModuleLoader__.load({
         h('h2', null, t(name)), h('p', null, t(name + 'Body')),
         codeOf(code) ? h('p', { className: 'ck-muted' }, codeOf(code)) : null);
     }
-    // Only bounded, Host-managed records become tree leaves. Inferred directories
-    // are navigation structure, never candidates for arbitrary filesystem reads.
-    function buildTree(records) {
-      const root = new Map(), seen = new Set();
-      for (const row of Array.isArray(records) ? records.slice(0, 50) : []) {
-        const path = pathOf(row?.path);
-        if (!path || seen.has(path)) continue;
-        const parts = path.split('/');
-        if (parts.length > 20) continue;
-        seen.add(path);
-        let branch = root;
-        for (let index = 0; index < parts.length; index++) {
-          const name = parts[index], current = parts.slice(0, index + 1).join('/');
-          if (index === parts.length - 1) branch.set(name, { path, name, kind: 'file', title: text(row.title), recordKind: text(row.kind, 80), revision: text(row.revision, 80) });
-          else {
-            if (!branch.has(name)) branch.set(name, { path: current, name, kind: 'directory', children: new Map() });
-            branch = branch.get(name).children;
-          }
-        }
-      }
-      const sorted = branch => [...branch.values()].sort((a, b) => a.kind !== b.kind ? a.kind === 'directory' ? -1 : 1 : a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
-        .map(node => node.kind === 'directory' ? { ...node, children: sorted(node.children) } : node);
-      return sorted(root);
-    }
     function FolderIcon({ file = false, size = 20 }) {
       return h('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, 'aria-hidden': true },
         h('path', { d: file ? 'M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h6' : 'M3 7V5h6l2 2h10v13H3z' }));
-    }
-    function FileTree({ t, records, expanded, onToggle, onOpen }) {
-      const id = React.useId();
-      const render = nodes => nodes.map(node => {
-        const folder = node.kind === 'directory', opened = expanded.has(node.path), group = id + '-' + encodeURIComponent(node.path);
-        return h('li', { key: node.path, className: 'ck-tree-item' },
-          h('button', { type: 'button', className: 'ck-tree-row',
-            ...(folder ? { 'aria-expanded': opened, 'aria-controls': group, 'aria-label': t(opened ? 'collapseFolder' : 'expandFolder', { name: node.name }) } : {}),
-            onClick: () => folder ? onToggle(node.path) : onOpen(node.path) },
-            h('span', { className: 'ck-tree-chevron', 'aria-hidden': true }, folder ? opened ? '−' : '+' : ''),
-            h(FolderIcon, { file: !folder }), h('span', { className: 'ck-tree-name' }, node.name),
-            !folder && node.title && node.title !== node.name ? h('span', { className: 'ck-muted ck-tree-title' }, node.title) : null),
-          folder ? h('ul', { id: group, hidden: !opened, className: 'ck-tree-branch' }, render(node.children)) : null);
-      });
-      return h('nav', { className: 'ck-tree', 'aria-label': t('files') }, h('ul', null, render(buildTree(records))));
     }
     function Icon({ size = 18 }) {
       return h('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, 'aria-hidden': true },
@@ -458,7 +390,6 @@ window.__ModuleLoader__.load({
       const [tab, setTab] = React.useState('files');
       const [draft, setDraft] = React.useState('');
       const [search, setSearch] = React.useState('');
-      const [expanded, setExpanded] = React.useState(() => new Set(['topics', 'sessions']));
       const [offset, setOffset] = React.useState(0);
       const [previous, setPrevious] = React.useState([]);
       const [detail, setDetail] = React.useState(null);
@@ -467,7 +398,7 @@ window.__ModuleLoader__.load({
       const heading = React.useRef(null);
       const focusOnLoad = React.useRef(false);
       const args = detail ? { action: 'read', path: detail.path, offset: detail.offset, limit: 10000 }
-        : { action: tab === 'files' ? 'tree' : 'sessions', query: search, offset, limit: tab === 'files' ? 50 : 20 };
+        : tab === 'files' ? { action: 'status' } : { action: 'sessions', query: search, offset, limit: 20 };
       const requestKey = JSON.stringify([args, reload]);
       // Gate the render as well as the callback: old rows disappear in the very
       // render that changes scope/filter/path, before any passive effect runs.
@@ -486,14 +417,15 @@ window.__ModuleLoader__.load({
         : h(React.Fragment, null,
           h('nav', { className: 'ck-tabs', 'aria-label': t('title') }, ['files', 'sessions'].map(name =>
             h('button', { type: 'button', key: name, 'aria-pressed': tab === name, onClick: () => changeTab(name) }, t(name)))),
-          h('form', { className: 'ck-toolbar', onSubmit: event => { event.preventDefault(); setSearch(draft.trim()); setOffset(0); setPrevious([]); } },
-            h('label', { className: 'ck-search' }, t(tab === 'files' ? 'fileSearch' : 'sessionSearch'), h('input', { type: 'search', maxLength: 300, value: draft, placeholder: t(tab === 'files' ? 'fileSearchHint' : 'searchHint'), onChange: event => setDraft(event.target.value) })),
+          tab === 'sessions' && h('form', { className: 'ck-toolbar', onSubmit: event => { event.preventDefault(); setSearch(draft.trim()); setOffset(0); setPrevious([]); } },
+            h('label', { className: 'ck-search' }, t('sessionSearch'), h('input', { type: 'search', maxLength: 300, value: draft, placeholder: t('searchHint'), onChange: event => setDraft(event.target.value) })),
             h('button', { type: 'submit' }, t('searchAction')),
             h('button', { type: 'button', disabled: !(draft || search), onClick: () => { setDraft(''); setSearch(''); setOffset(0); setPrevious([]); } }, t('clear'))));
       let body;
       if (!current) body = h('p', { role: 'status', 'aria-live': 'polite' }, t('loading'));
       else if (current.configured === false || ['unconfigured', 'setup_required'].includes(current.state)) body = h(Notice, { t, kind: 'unconfigured' });
       else if (!current.ok) body = h(Notice, { t, kind: current.state, code: current.error });
+      else if (!detail && tab === 'files') body = h(React.Fragment, null, h(Processing, { t, value: current.processing }), h('p', { className: 'ck-notice' }, t('finderBody')));
       else if (detail) body = h(React.Fragment, null,
         h('h2', { className: 'ck-detail-title', ref: heading, tabIndex: -1 }, text(current.title) || t('document')),
         h('p', { className: 'ck-muted' }, text(current.path, 300)),
@@ -523,10 +455,8 @@ window.__ModuleLoader__.load({
         body = h(React.Fragment, null,
           h('h2', { ref: heading, tabIndex: -1 }, t(tab)),
           h(Processing, { t, value: current.processing }),
-          tab === 'files' ? h('p', { className: 'ck-muted' }, t('treeHelp')) : h('p', { className: 'ck-muted' }, t('sessionsHelp')),
-          rows.length ? tab === 'files'
-            ? h(FileTree, { t, records: rows, expanded, onOpen: open, onToggle: path => setExpanded(previous => { const next = new Set(previous); next.has(path) ? next.delete(path) : next.add(path); return next; }) })
-            : h('ul', null, rows.map((item, index) => h('li', { className: 'ck-row', key: item.path || item.id || index },
+          h('p', { className: 'ck-muted' }, t('sessionsHelp')),
+          rows.length ? h('ul', null, rows.map((item, index) => h('li', { className: 'ck-row', key: item.path || item.id || index },
               h('button', { type: 'button', className: 'ck-open', disabled: !pathOf(item.path), onClick: () => open(item.path) }, text(item.title) || t('document')),
               h('p', { className: 'ck-excerpt' }, text(item.excerpt)), h('p', { className: 'ck-muted' }, text(item.path, 300)),
               h('div', { className: 'ck-meta' }, [...(Array.isArray(item.topics) ? item.topics : []), ...(Array.isArray(item.sessions) ? item.sessions : [])].slice(0, 24).map(link =>
@@ -540,12 +470,14 @@ window.__ModuleLoader__.load({
         h('div', { 'aria-busy': !current }, body),
         current?.truncated || current?.relatedTruncated || current?.childrenTruncated || current?.metadataTruncated ? h('p', { className: 'ck-notice', role: 'status' }, t('truncated')) : null);
     }
-    function StorageChooser({ t, startStorage, startChoosing, canWrite, canList, canPick, useSettingsRevision, useStorageOutcome, session, onStorage }) {
+    function StorageChooser({ t, startStorage, startChoosing, canWrite, canList, canPick, useSettingsRevision, useStorageOutcome, startOpenFolder, session, onStorage }) {
       const revision = useSettingsRevision(value => value), uncertain = useStorageOutcome(value => value);
       const [loaded, setLoaded] = React.useState(null), [busy, setBusy] = React.useState(false), [message, setMessage] = React.useState('');
-      const [folderOpen, setFolderOpen] = React.useState(false), [folders, setFolders] = React.useState(null), [hidden, setHidden] = React.useState(false);
+      const [folderOpen, setFolderOpen] = React.useState(false), [folders, setFolders] = React.useState(null);
       const chooser = React.useRef(null), cancelLoad = React.useRef(() => {}), busyNow = React.useRef(false);
-      const chooseButton = React.useRef(null), folderTitle = React.useRef(null), reloadButton = React.useRef(null), focusAfter = React.useRef(false);
+      const cancelOpen = React.useRef(() => {}), openingNow = React.useRef(false);
+      const [opening, setOpening] = React.useState(false), [finderMessage, setFinderMessage] = React.useState('');
+      const chooseButton = React.useRef(null), reloadButton = React.useRef(null), focusAfter = React.useRef(false);
       const ids = React.useId(), descriptor = loaded?.descriptor;
       const sessionReady = typeof session?.id === 'string' && session.id.length > 0 && absoluteRoot(session.cwd);
       const setupReady = descriptor?.enabled && descriptor.useSessionModel && descriptor.exactWorkspaces && sessionReady && descriptor.allowedWorkspaces.length === 1 && descriptor.allowedWorkspaces[0] === session.cwd;
@@ -565,14 +497,14 @@ window.__ModuleLoader__.load({
       // Layout cleanup closes the chooser before promise callbacks can run after
       // an owner panel/permission-key unmount, not a later passive-effect pass.
       React.useLayoutEffect(() => () => {
-        chooser.current?.cancel(); chooser.current = null; cancelLoad.current(); busyNow.current = false;
+        chooser.current?.cancel(); chooser.current = null; cancelLoad.current(); cancelOpen.current(); openingNow.current = false; busyNow.current = false;
       }, [startStorage, startChoosing]);
       const closeChooser = () => {
         chooser.current?.cancel(); chooser.current = null; setFolderOpen(false); setFolders(null); focusAfter.current = true;
       };
       const choose = (existing = false) => {
         if (busyNow.current || chooser.current || !writable || needsReload || (existing && !sessionReady)) return;
-        setMessage(''); setFolders(null); setFolderOpen(!existing); setHidden(false);
+        setMessage(''); setFolders(null); setFolderOpen(!existing);
         chooser.current = startChoosing({ ns: descriptor.ns, revision: descriptor.revision, path: absoluteRoot(descriptor.root) ? descriptor.root : undefined,
           sessionId: session?.id, workspace: session?.cwd, existing, canList, canPick }, value => {
           if (value.choosing) { setFolders(value.loading ? null : value); return; }
@@ -584,17 +516,22 @@ window.__ModuleLoader__.load({
         });
         if (existing) chooser.current?.confirm(descriptor.root);
       };
-      React.useEffect(() => { if (folderOpen && !folders?.nativeWaiting) folderTitle.current?.focus(); }, [folderOpen, folders]);
       React.useEffect(() => { if (!busy && !folderOpen && focusAfter.current) { focusAfter.current = false; (needsReload ? reloadButton : chooseButton).current?.focus(); } }, [busy, folderOpen, needsReload]);
       React.useLayoutEffect(() => { if (changed && !busyNow.current) closeChooser(); }, [changed]);
-      const folderRows = folders?.entries?.filter(row => hidden || !row.hidden) ?? [];
+      const openFinder = () => {
+        if (openingNow.current || busyNow.current || !descriptor?.root || !writable || needsReload) return;
+        openingNow.current = true; setOpening(true); setFinderMessage('');
+        cancelOpen.current = startOpenFolder(value => { openingNow.current = false; setOpening(false); setFinderMessage(value.ok ? 'finderOpened' : 'finderError'); });
+      };
       const notice = uncertain ? 'storageError' : changed ? 'storageChanged' : message;
       return h('section', { className: 'ck-storage' + (descriptor?.root ? ' ck-storage-connected' : ' ck-storage-empty'), 'aria-labelledby': ids + '-title', 'aria-busy': busy },
         h('h2', { id: ids + '-title' }, t('storage')),
         descriptor?.root ? h('p', { className: 'ck-storage-path' }, descriptor.root) : null,
-        h('button', { type: 'button', ref: chooseButton, className: 'ck-directory-pick' + (descriptor?.root ? ' is-connected' : ''), 'aria-describedby': ids + '-help', disabled: busy || folderOpen || !writable || needsReload || !descriptor, onClick: () => choose(false) },
+        h('button', { type: 'button', ref: chooseButton, className: 'ck-directory-pick' + (descriptor?.root ? ' is-connected' : ''), 'aria-describedby': ids + '-help', disabled: busy || opening || folderOpen || !writable || needsReload || !descriptor || !sessionReady, onClick: () => choose(false) },
           h(FolderIcon, { size: descriptor?.root ? 20 : 32 }), h('strong', null, t(descriptor?.root ? 'storageChange' : 'storageSelect')),
           !descriptor?.root ? h('span', { className: 'ck-muted' }, t('storagePickHint')) : null),
+        descriptor?.root ? h('button', { type: 'button', className: 'ck-open-finder', disabled: busy || opening || folderOpen || !writable || needsReload, onClick: openFinder }, t(opening ? 'finderOpening' : 'finderOpen')) : null,
+        finderMessage ? h('p', { role: finderMessage === 'finderError' ? 'alert' : 'status' }, t(finderMessage)) : null,
         h('p', { id: ids + '-help', className: 'ck-muted' }, t('storageHelp')),
         sessionReady ? h('div', { className: 'ck-setup-consent' }, h('p', null, t('setupWorkspace'), ': ', h('strong', null, session.cwd)), h('p', { className: 'ck-muted' }, t('setupConsent')))
           : h('p', { className: 'ck-muted' }, t('setupSelectSession')),
@@ -606,26 +543,16 @@ window.__ModuleLoader__.load({
           h('p', null, t(storageDiagnostics[loaded.diagnostic])),
           h('p', { className: 'ck-muted' }, codeOf(loaded.diagnostic), nativeCodeOf(loaded.nativeCode) ? ' · ' + nativeCodeOf(loaded.nativeCode) : '')) : null,
         needsReload || (loaded && !loaded.ok) ? h('button', { type: 'button', ref: reloadButton, disabled: busy, onClick: () => load(true) }, t('storageReload')) : null,
-        folderOpen && !changed && writable ? h('section', { className: 'ck-folders', 'aria-labelledby': ids + '-folders', 'aria-busy': !folders || !!folders.nativeWaiting,
-          onKeyDown: event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeChooser(); } } },
-          h('h3', { id: ids + '-folders', ref: folderTitle, tabIndex: -1 }, t('storageBrowseTitle')),
-          h('p', null, t('storageBrowseHelp')),
-          !folders || folders.nativeWaiting ? h('p', { role: 'status' }, t(folders?.nativeWaiting ? 'storageNativeWaiting' : 'storageBrowseLoading'))
-            : !folders.ok ? h('p', { role: 'alert' }, t(folders.state === 'unavailable' || folders.state === 'denied' ? 'storagePickerUnavailable' : 'storageBrowseError'))
-              : h(React.Fragment, null,
-                h('p', { className: 'ck-storage-path' }, folders.path),
-                h('nav', { className: 'ck-meta', 'aria-label': t('storageBrowseTitle') }, folders.crumbs.map(row => h('button', { key: row.path, type: 'button', disabled: row.path === folders.path, onClick: () => chooser.current?.navigate(row.path) }, row.name))),
-                h('label', { className: 'ck-meta' }, h('input', { type: 'checkbox', checked: hidden, onChange: event => setHidden(event.target.checked) }), t('storageHidden')),
-                folderRows.length ? h('ul', { className: 'ck-folder-list' }, folderRows.map(row => h('li', { key: row.path }, h('button', { type: 'button', onClick: () => chooser.current?.navigate(row.path) }, row.name)))) : h('p', null, t('storageNoFolders')),
-                folders.truncated ? h('p', { role: 'status' }, t('truncated')) : null,
-                h('button', { type: 'button', disabled: !sessionReady, onClick: () => chooser.current?.confirm(folders.path) }, t('storageChoose'))),
-          h('div', { className: 'ck-toolbar' }, h('button', { type: 'button', disabled: !folders || !!folders.nativeWaiting, onClick: () => chooser.current?.navigate(undefined) }, t('storageHome')),
-            h('button', { type: 'button', onClick: closeChooser }, t('storageCloseBrowse')))) : null);
+        folderOpen && !changed && writable ? h('section', { className: 'ck-native-picker', 'aria-busy': !folders || !!folders.nativeWaiting },
+          h('p', { role: folders && !folders.ok ? 'alert' : 'status' }, t(folders && !folders.ok ? 'storagePickerUnavailable' : 'storageNativeWaiting')),
+          folders?.diagnostic ? h('p', { className: 'ck-muted' }, desktopCodeOf(folders.diagnostic)) : null,
+          h('button', { type: 'button', onClick: closeChooser }, t('storageCloseBrowse'))) : null);
     }
+
     function StorageAccess(props) {
       const { t, useRemoteAccess, useStorageEpoch } = props;
       const readable = useRemoteAccess('settings/describe'), canWrite = useRemoteAccess('settings/update');
-      const canList = useRemoteAccess('directoryPicker/list'), canPick = useRemoteAccess('directoryPicker/pick');
+      const canList = false, canPick = canWrite;
       const epoch = useStorageEpoch(value => value);
       React.useEffect(() => { if (!readable) props.onStorage?.(null); }, [readable, props.onStorage]);
       return !readable ? h('section', { className: 'ck-storage' }, h('h2', null, t('storage')), h('p', null, t('storageDenied')))
@@ -742,29 +669,31 @@ window.__ModuleLoader__.load({
             receive(value);
           }, () => { if (dispatched && !answered) setUncertain(true); });
         };
-        const startFolders = ({ path, canList, canPick }, receive) => operation(async (signal, alive, extend) => {
-          const picker = ctx.get('remote.directoryPicker');
-          if (!picker || (!canList && !canPick)) return failure('unavailable');
-          if (path !== undefined && !absoluteRoot(path)) return failure('invalid');
-          const reply = canList ? await picker.list(path, signal) : { ok: false, error: { code: 'directory-picker/unavailable', details: { capability: 'native' } } };
+        const desktopCall = async (action, signal) => {
+          const response = await fetch('api/ctxkit-desktop/' + action, {
+            method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}', signal,
+          });
+          return response.ok ? response.json() : { ok: false, error: { code: 'CTXKIT_DESKTOP_HTTP_' + response.status } };
+        };
+        const startFolders = ({ canPick }, receive) => operation(async (signal, alive, extend) => {
+          if (!canPick || typeof fetch !== 'function') return failure('unavailable');
+          extend(120000);
+          receive({ ok: true, nativeWaiting: true });
+          let picked;
+          try { picked = await desktopCall('pick', signal); }
+          catch (error) { return { ...failure('error'), diagnostic: desktopCodeOf(error?.code) || 'CTXKIT_DESKTOP_TRANSPORT' }; }
           if (!alive()) return;
-          if (!reply?.ok && reply?.error?.code === 'directory-picker/unavailable' && reply.error.details?.capability === 'native' && canPick) {
-            extend(120000);
-            receive({ ok: true, nativeWaiting: true });
-            const picked = await picker.pick(signal);
-            if (!alive()) return;
-            return !picked?.ok ? storageFailure(picked) : picked.value === null ? { ok: true, cancelled: true }
-              : absoluteRoot(picked.value) ? { ok: true, picked: picked.value } : failure('error');
-          }
-          if (!reply?.ok) return storageFailure(reply);
-          const listing = reply.value;
-          if (!absoluteRoot(listing?.path) || !Array.isArray(listing.entries) || !Array.isArray(listing.crumbs)) return failure('error');
-          const rows = list => list.filter(row => absoluteRoot(row?.path) && typeof row.name === 'string').slice(0, 200).map(row => ({ path: row.path, name: row.name.slice(0, 300), hidden: row.hidden === true }));
-          return { ok: true, path: listing.path, home: absoluteRoot(listing.home) ? listing.home : undefined,
-            crumbs: rows(listing.crumbs), entries: rows(listing.entries), truncated: listing.truncated === true || listing.entries.length > 200 };
+          return !picked?.ok ? { ...storageFailure(picked), diagnostic: desktopCodeOf(picked?.error?.code) } : picked.value === null ? { ok: true, cancelled: true }
+            : absoluteRoot(picked.value) ? { ok: true, picked: picked.value } : failure('error');
+        }, receive);
+        const startOpenFolder = receive => operation(async (signal, alive) => {
+          if (typeof fetch !== 'function') return failure('unavailable');
+          const reply = await desktopCall('open', signal);
+          if (!alive()) return;
+          return reply?.ok && reply.value?.opened === true ? { ok: true } : storageFailure(reply);
         }, receive);
         // One chooser lifetime owns navigation and the sole persistence boundary.
-        // Native pick and browse confirmation converge here; navigation never saves.
+        // Native selection and explicit existing-root consent share the save boundary.
         const startChoosing = (request, receive) => {
           let live = active, saving = false, serial = 0, selectable, cancelRequest = () => {};
           const cancel = () => { live = false; serial++; cancelRequest(); operations.delete(cancel); };
@@ -819,7 +748,7 @@ window.__ModuleLoader__.load({
           for (const listener of revisionListeners) listener();
         });
         ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PAGE, locale: NS,
-          inject: () => ({ startRead, startStorage, startFolders, startChoosing, buildTree, canBrowseStorage,
+          inject: () => ({ startRead, startStorage, startFolders, startChoosing, startOpenFolder, canBrowseStorage,
             hooks: { libraryEpoch: source, storageEpoch: storageSource, settingsRevision: revisionSource, storageOutcome: outcomeSource } }),
         }, Page));
         ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({ name: 'plugins.bundle.config', key: 'ctxkit-dsh', locale: NS,

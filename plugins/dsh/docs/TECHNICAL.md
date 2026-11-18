@@ -8,11 +8,19 @@
 
 Work normally in opted-in DSH sessions. Completed turns are checked for durable work, captured as sourced checkpoints, then organized into topic overviews, detailed knowledge, evidenced relationships and inert procedure drafts. A tool-free auxiliary model performs extraction and organization. It cannot deploy, publish or execute generated skills.
 
+## 0.6 当前交互 / Current interaction
+
+浏览器和 DSH 在同一台 Mac 时，点击 **选择目录** 直接弹出 **macOS 系统目录窗口**；在系统窗口确认即完成下述接入，取消不保存。不是上传目录，也不再打开网页目录列表。
+
+配置后点击 **在 Finder 中打开** 查看、编辑或管理上下文文件；网页不再呈现文件树。**Sessions** 继续单独搜索已采集会话。Finder 是用户自己的系统文件管理器，手动删除或移动资料不享有插件的版本冲突保护；请谨慎操作。
+
+Native desktop actions are macOS-only, browser-owner-only, and require writable Settings authority. They open on the DSH host display, so this workflow assumes the browser and DSH run on the same Mac. No global directory-picker service is replaced. The model/capture opt-in, current-workspace scope and file policy below remain unchanged.
+
 ## 安装与启用 / Install and opt in
 
-在 DSH 的插件管理中添加本目录（或打包后的 npm tarball）。通过 agent 安装时使用 DSH 的 `plugin_manager`，不要自行重写用户 profile。源码包无依赖安装脚本，不下载 embedding 模型。
+在 DSH 的插件管理中添加本目录（或打包后的 npm tarball）。通过 agent 安装时使用 DSH 的 `plugin_manager`，不要自行重写用户 profile。CtxKit 自身不定义安装脚本，也不下载 embedding 模型。官方原生选择器的传递依赖 Koffi 带有构建脚本；macOS 目录选择不依赖其 Windows 组件，本轮没有批准或运行该脚本。
 
-安装默认不采集。打开侧栏 **上下文库 / Context Library**，选中真实会话，点击“选择目录”，在宿主目录选择器确认一个已有目录。取消不作修改；没有路径配置表单、环境变量或第二个保存按钮。已有旧版目录可直接“使用此目录”完成接入。
+安装默认不采集。打开侧栏 **上下文库 / Context Library**，选中真实会话，点击“选择目录”，在 macOS 系统窗口确认一个已有目录。取消不作修改；没有路径配置表单、环境变量或第二个保存按钮。已有旧版目录可直接“使用此目录”完成接入。
 
 确认前明确展示当前工作目录与模型政策：**仅此工作目录的新成果**会写入所选库，使用各会话当前选定的模型整理，会产生额外模型调用。目录属于运行 DSH 的机器，不是远程浏览器本机。推荐专用空目录；不导入历史聊天、不搬移旧资料、不覆盖无标记文档。
 
@@ -60,13 +68,13 @@ Pause clears buffered source immediately and cancels that session's in-flight mo
 
 安装或更新后刷新当前 DSH 页面，在侧栏打开 **“上下文库 / Context library”**。先选中一个真实会话，页面以该会话当前的工作区和权限检查访问范围，不会自行创建会话或扩大授权。
 
-- **文件**：默认展开式文件树，按真实受管理 Markdown 路径显示目录层级；点击文件查看内容。包括主题文档、操作草稿、会话档案、阶段记录与派生 INDEX。列表按路径排序并分页，不偷偷读取库之外的文件。
+- **上下文目录**：显示采集状态，通过上方“在 Finder 中打开”查看文件；网页不再呈现文件树。
 - **Sessions**：单独搜索、分页浏览库中已采集的会话档案，按近期更新排序。这不是全部 DSH 聊天列表。
 - 当前会话的采集资格与阻断原因以小状态提示，详细处理状态也可通过工具查看。
 
 未配置、没有记录、无匹配、无权限和读取失败分别显示。资料区域是**只读快照**：点击“刷新视图”获取后续变化；不轮询、不自动重试整理、不安装或执行草稿。存储目录直接在资料页选择：只有明确确认才启用当前范围的记录，浏览文件夹或取消不会改动。切换会话/工作区/权限或插件连接时，旧响应与旧文档会失效。正文先使用安全的纯文本 Markdown 阅读；受管理的来源、子文档和关系有独立导航按钮，正文中的任意链接或 HTML 不会执行。
 
-The native sidebar page offers an expandable Files tree and a separate Sessions search tab, pagination, safe document windows and managed-source navigation. It shares the exact bounded Host query with agent tools. The current selected session supplies access context; an empty setup is not presented as an empty successful library.
+The native sidebar page offers direct Finder access and a separate Sessions search tab, pagination, safe document windows and managed-source navigation. It shares the exact bounded Host query with agent tools. The current selected session supplies access context; an empty setup is not presented as an empty successful library.
 
 浏览页通过 DSH 原生 session command 调用同一 Host 查询操作，不额外开启 HTTP server。DSH 会将有界查询结果写入该 session 的 command 审计日志（不作为模型聊天消息）；查询不写知识库，也不读取原始聊天全文。
 

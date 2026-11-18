@@ -21,7 +21,8 @@ function fixture({ settings = true, picker = true, panel = true } = {}) {
   let bundle, dictionaries, execute = async () => response({ ok: true, results: [], total: 0 })
   let describe = async () => ({ ok: true, value: { writable: true, namespaces: [namespace()] } }), update = async () => ({ ok: true, value: configured('/fictional/new', 1) });
   let list = async path => ({ ok: true, value: { path: path ?? '/fictional', home: '/fictional', crumbs: [], entries: [], truncated: false } }), pick = async () => ({ ok: true, value: null });
-  const settingsCalls = [], folderCalls = [];
+  const settingsCalls = [], folderCalls = [], desktopCalls = [];
+  let open = async () => ({ ok: true, value: { opened: true } });
   const settingsService = { describe(...args) { settingsCalls.push(['describe', ...args]); return describe(...args) }, update(...args) { settingsCalls.push(['update', ...args]); return update(...args) } };
   const pickerService = { list(...args) { folderCalls.push(['list', ...args]); return list(...args) }, pick(...args) { folderCalls.push(['pick', ...args]); return pick(...args) } };
   const timers = new Map(), calls = [], registrations = [], disposers = [], events = new Map()
@@ -29,6 +30,15 @@ function fixture({ settings = true, picker = true, panel = true } = {}) {
   vm.runInNewContext(source, {
     window: { __ModuleLoader__: { load(value) { assert.equal(bundle, undefined); bundle = value } } },
     AbortController,
+    fetch: async (url, options) => {
+      assert.match(url, /^api\/ctxkit-desktop\/(pick|open)$/)
+      assert.equal(options.method, 'POST'); assert.equal(options.credentials, 'same-origin')
+      const method = url.split('/').at(-1), payload = JSON.parse(options.body), signal = options.signal
+      assert.deepEqual(plain(payload), {}); desktopCalls.push([method, payload, signal])
+      if (method === 'pick') folderCalls.push(['pick', signal])
+      const result = !picker ? { ok: false, error: { code: 'CTXKIT_DESKTOP_UNAVAILABLE' } } : await (method === 'pick' ? pick(signal) : open(signal))
+      return { ok: true, json: async () => result }
+    },
     setTimeout(fn, delay) { assert.ok([15000, 120000].includes(delay)); const id = ++timerId; timers.set(id, fn); return id },
     clearTimeout(id) { timers.delete(id) },
   })
@@ -62,7 +72,8 @@ function fixture({ settings = true, picker = true, panel = true } = {}) {
   const panelFace = registrations.find(row => row.options.name === 'plugins.bundle.config')?.options.inject?.() ?? {}
   // The Library now owns both read and setup faces; the plugin panel only guides.
   const storage = main, injected = main
-  return { plugin, registrations, dictionaries, calls, events, timers, injected, main, storage, panelFace, settingsCalls, folderCalls,
+  return { plugin, registrations, dictionaries, calls, events, timers, injected, main, storage, panelFace, settingsCalls, folderCalls, desktopCalls,
+    setOpen(fn) { open = fn },
     setDescribe(fn) { describe = fn }, setUpdate(fn) { update = fn }, setList(fn) { list = fn }, setPick(fn) { pick = fn },
     setExecute(fn) { execute = fn }, dispose() { [...disposers].reverse().forEach(fn => fn()) } }
 }
@@ -83,7 +94,7 @@ test('lazy React-only artifact registers native slots, synchronized locales and 
   assert.equal(typeof f.storage.startChoosing, 'function')
   for (const lang of ['en', 'zh']) { assert.deepEqual(plain(f.dictionaries[lang]), locales[lang].library); assert.ok(locales[lang].meta.title) }
   assert.deepEqual(Object.keys(locales.en.library), Object.keys(locales.zh.library))
-  assert.doesNotMatch(source, /dangerouslySetInnerHTML|innerHTML|document\.body|fetch\(|localStorage|setInterval|require\(['"]@deepseek/)
+  assert.doesNotMatch(source, /dangerouslySetInnerHTML|innerHTML|document\.body|localStorage|setInterval|require\(['"]@deepseek/)
   f.dispose()
   assert.equal(f.registrations.length, 0)
   assert.equal(f.events.size, 0)
@@ -291,25 +302,24 @@ test('connection change, local cancellation and timeout never accept a late save
   }
 })
 
-test('folder browser uses native host listing only and never writes configuration', async () => {
+test('system chooser is called directly without a directory listing or configuration write', async () => {
   const f = fixture(), values = []
-  f.setList(async () => ({ ok: true, value: { path: '/fictional', home: '/fictional', crumbs: [{ name: '/', path: '/', hidden: false }],
-    entries: [{ name: 'work', path: '/fictional/work', hidden: false }, { name: '.private', path: '/fictional/.private', hidden: true }, { name: 'bad', path: 'relative' }], truncated: true } }))
-  f.injected.startFolders({ path: '/fictional', canList: true, canPick: true }, v => values.push(v)); await tick()
-  assert.equal(f.folderCalls[0][0], 'list'); assert.equal(f.folderCalls[0][1], '/fictional')
-  assert.ok(f.folderCalls[0][2] instanceof AbortSignal)
-  assert.equal(values[0].entries.length, 2); assert.equal(values[0].truncated, true)
+  f.setPick(async () => ({ ok: true, value: '/fictional/chosen' }))
+  f.injected.startFolders({ canList: true, canPick: true }, v => values.push(v)); await tick()
+  assert.deepEqual(f.folderCalls.map(call => call[0]), ['pick'])
+  assert.ok(f.folderCalls[0][1] instanceof AbortSignal)
+  assert.equal(values.at(-1).picked, '/fictional/chosen')
   assert.equal(f.settingsCalls.length, 0); assert.equal(f.calls.length, 0); f.dispose()
 })
 
-test('native chooser is called only for the exact native capability and ignores cancelled lifetime', async () => {
+test('native chooser never falls back to web browsing and ignores cancelled lifetime', async () => {
   const f = fixture(), values = []; let complete
   f.setList(async () => ({ ok: false, error: { code: 'directory-picker/unavailable', details: { capability: 'native' } } }))
   f.setPick(() => new Promise(resolve => { complete = resolve }))
   const cancel = f.injected.startFolders({ canList: true, canPick: true }, v => values.push(v)); await tick()
-  assert.deepEqual(plain(values), [{ ok: true, nativeWaiting: true }]); assert.equal(f.folderCalls[1][0], 'pick')
-  assert.ok(f.folderCalls[1][1] instanceof AbortSignal)
-  cancel(); assert.equal(f.folderCalls[1][1].aborted, true)
+  assert.deepEqual(plain(values), [{ ok: true, nativeWaiting: true }]); assert.equal(f.folderCalls[0][0], 'pick')
+  assert.ok(f.folderCalls[0][1] instanceof AbortSignal)
+  cancel(); assert.equal(f.folderCalls[0][1].aborted, true)
   complete({ ok: true, value: '/fictional/chosen' }); await tick()
   assert.equal(values.length, 1); assert.equal(f.settingsCalls.length, 0); f.dispose()
 })
@@ -363,9 +373,8 @@ test('Library owns the prominent chooser, one setup confirmation and accessible 
   assert.match(source, /settings\/describe/); assert.match(source, /settings\/update/)
   assert.match(source, /key: JSON.stringify\(\[epoch, readable, canWrite, canList, canPick, props.session\?\.id, props.session\?\.cwd, props.session\?\.permission\]\)/)
   assert.match(source, /'aria-describedby': ids/)
-  assert.match(source, /'storageSelect'/); assert.match(source, /t\('storageChoose'\)/)
+  assert.match(source, /'storageSelect'/); assert.match(source, /'storageNativeWaiting'/)
   assert.match(source, /t\('storageCloseBrowse'\)/); assert.match(source, /t\('storageReload'\)/)
-  assert.match(source, /event\.key === 'Escape'/)
   assert.match(source, /React\.useLayoutEffect/)
   assert.match(source, /disabled: busy \|\| folderOpen \|\| !writable \|\| needsReload/)
   assert.match(source, /h\('details'/); assert.match(source, /role: notice === 'storageSaved' \? 'status' : 'alert'/)
@@ -376,14 +385,14 @@ test('Library owns the prominent chooser, one setup confirmation and accessible 
   assert.doesNotMatch(source, /createDirectory\(|createWorkspace\(|showDirectoryPicker\(|webkitdirectory/)
 })
 
-const choose = (f, values, overrides = {}) => f.storage.startChoosing({ ns: 'ctxkit', revision: 0, workspace: '/fictional/workspace', sessionId: 'fictional-session', path: '/fictional/new', canList: true, canPick: true, ...overrides }, value => values.push(value))
+const choose = (f, values, overrides = {}) => f.storage.startChoosing({ ns: 'ctxkit', revision: 0, workspace: '/fictional/workspace', sessionId: 'fictional-session', path: '/fictional/new', existing: true, canList: false, canPick: true, ...overrides }, value => values.push(value))
 const updates = f => f.settingsCalls.filter(call => call[0] === 'update')
 const listing = path => ({ ok: true, value: { path, home: '/fictional', entries: [], crumbs: [], truncated: false } })
 
-test('confirming the current listed directory automatically saves exactly one guarded selection', async () => {
+test('confirming an existing configured directory automatically saves exactly one guarded selection', async () => {
   const f = fixture(), values = []
   const actor = choose(f, values); await tick()
-  assert.equal(values.at(-1).path, '/fictional/new')
+  assert.equal(values.length, 0)
   assert.equal(updates(f).length, 0, 'opening a chooser does not save')
   actor.confirm('/fictional/new'); await tick()
   assert.deepEqual(plain(updates(f)), [['update', 'ctxkit', setupPatch('/fictional/new'), 0]])
@@ -391,73 +400,46 @@ test('confirming the current listed directory automatically saves exactly one gu
   assert.equal(values.at(-1).saved, true)
   assert.equal(values.at(-1).descriptor.root, '/fictional/new')
   actor.confirm('/fictional/new'); actor.navigate('/fictional/ignored'); await tick()
-  assert.equal(updates(f).length, 1); assert.equal(f.folderCalls.length, 1)
+  assert.equal(updates(f).length, 1); assert.equal(f.folderCalls.length, 0)
   assert.equal(f.timers.size, 0); f.dispose()
 })
 
-test('directory navigation and cancellation are draft-only and abort pending listing', async () => {
-  const f = fixture(), values = []; let finish
-  const actor = choose(f, values); await tick()
-  actor.navigate('/fictional/other'); await tick()
-  assert.equal(values.at(-1).path, '/fictional/other')
-  f.setList(() => new Promise(resolve => { finish = resolve }))
-  actor.navigate('/fictional/pending'); await tick()
-  const count = values.length
-  actor.cancel()
-  assert.equal(f.folderCalls.at(-1)[2].aborted, true)
-  finish(listing('/fictional/pending')); await tick()
-  actor.confirm('/fictional/pending'); await tick()
-  assert.equal(values.length, count); assert.equal(updates(f).length, 0)
-  assert.equal(f.timers.size, 0); f.dispose()
-})
-
-test('confirmation cannot name another path or use an old path while navigation is loading', async () => {
-  const f = fixture(), values = []; let finish
-  const actor = choose(f, values); await tick()
-  actor.confirm('/fictional/not-listed'); await tick()
+test('existing directory confirmation cannot substitute an arbitrary path', async () => {
+  const f = fixture(), values = []
+  const actor = choose(f, values)
+  actor.confirm('/fictional/other'); await tick()
   assert.equal(updates(f).length, 0)
-  f.setList(() => new Promise(resolve => { finish = resolve }))
-  actor.navigate('/fictional/next'); await tick()
-  actor.confirm('/fictional/new'); actor.confirm('/fictional/next'); await tick()
-  assert.equal(updates(f).length, 0)
-  finish(listing('/fictional/next')); await tick()
-  f.setUpdate(async () => ({ ok: true, value: configured('/fictional/next', 1) }))
-  actor.confirm('/fictional/next'); await tick()
-  assert.equal(updates(f).length, 1)
-  assert.equal(updates(f)[0][2].root, '/fictional/next')
-  assert.equal(values.at(-1).saved, true); f.dispose()
-})
-
-test('a stale listing or failed navigation never makes a directory selectable', async () => {
-  const f = fixture(), values = [], replies = []
-  f.setList(() => new Promise(resolve => replies.push(resolve)))
-  const actor = choose(f, values); await tick()
-  actor.navigate('/fictional/next'); await tick()
-  replies[0](listing('/fictional/new')); await tick()
   actor.confirm('/fictional/new'); await tick()
-  assert.equal(updates(f).length, 0)
-  replies[1]({ ok: false, error: { code: 'directory-picker/denied' } }); await tick()
-  actor.confirm('/fictional/next'); await tick()
-  assert.equal(updates(f).length, 0)
-  actor.cancel(); f.dispose()
+  assert.equal(updates(f).length, 1); f.dispose()
 })
 
 test('native picker success joins the same automatic persistence boundary', async () => {
   const f = fixture(), values = []
   f.setList(async () => ({ ok: false, error: { code: 'directory-picker/unavailable', details: { capability: 'native' } } }))
   f.setPick(async () => ({ ok: true, value: '/fictional/new' }))
-  choose(f, values); await tick()
-  assert.deepEqual(f.folderCalls.map(call => call[0]), ['list', 'pick'])
-  assert.ok(f.folderCalls[1][1] instanceof AbortSignal)
+  choose(f, values, { existing: false }); await tick()
+  assert.deepEqual(f.folderCalls.map(call => call[0]), ['pick'])
+  assert.ok(f.folderCalls[0][1] instanceof AbortSignal)
   assert.deepEqual(plain(updates(f)), [['update', 'ctxkit', setupPatch('/fictional/new'), 0]])
   assert.equal(values.at(-1).saved, true); f.dispose()
+})
+
+test('desktop failures retain safe diagnostics and classify uppercase native codes', async () => {
+  const f = fixture(), values = []
+  f.setPick(async () => ({ ok: false, error: { code: 'CTXKIT_DESKTOP_DENIED' } }))
+  f.storage.startFolders({ canPick: true }, value => values.push(value))
+  await tick()
+  assert.equal(values.at(-1).state, 'denied')
+  assert.equal(values.at(-1).diagnostic, 'CTXKIT_DESKTOP_DENIED')
+  assert.equal(f.settingsCalls.length, 0)
+  f.dispose()
 })
 
 test('native picker cancel and unavailable providers never write settings', async () => {
   for (const mode of ['cancelled', 'unavailable', 'no-capability']) {
     const f = fixture({ picker: mode !== 'unavailable' }), values = []
     f.setList(async () => ({ ok: false, error: { code: 'directory-picker/unavailable', details: { capability: 'native' } } }))
-    const actor = choose(f, values, mode === 'no-capability' ? { canList: false, canPick: false } : {})
+    const actor = choose(f, values, { existing: false, canPick: mode !== 'no-capability' })
     await tick()
     if (mode === 'cancelled') assert.equal(values.at(-1).cancelled, true)
     else assert.equal(values.at(-1).state, 'unavailable')
@@ -470,7 +452,7 @@ test('closing, disposal or connection reset before native selection cannot start
   for (const action of ['cancel', 'dispose', 'connection/reset', 'plugin-manager/changed']) {
     const f = fixture(), values = []; let finish
     f.setPick(() => new Promise(resolve => { finish = resolve }))
-    const actor = choose(f, values, { canList: false }); await tick()
+    const actor = choose(f, values, { existing: false, canList: false }); await tick()
     assert.ok(values.some(value => value.nativeWaiting))
     if (action === 'cancel') actor.cancel()
     else if (action === 'dispose') f.dispose()
@@ -504,9 +486,9 @@ test('double confirmation and navigation during saving cannot issue a second wri
   f.setUpdate(() => new Promise(resolve => { finish = resolve }))
   const actor = choose(f, values); await tick()
   actor.confirm('/fictional/new'); actor.confirm('/fictional/new'); actor.navigate('/fictional/other'); await tick()
-  assert.equal(updates(f).length, 1); assert.equal(f.folderCalls.length, 1)
+  assert.equal(updates(f).length, 1); assert.equal(f.folderCalls.length, 0)
   actor.confirm('/fictional/new'); actor.navigate('/fictional/other'); await tick()
-  assert.equal(updates(f).length, 1); assert.equal(f.folderCalls.length, 1)
+  assert.equal(updates(f).length, 1); assert.equal(f.folderCalls.length, 0)
   finish({ ok: true, value: configured('/fictional/new', 1) }); await tick()
   assert.equal(values.filter(value => value.saved).length, 1); f.dispose()
 })
@@ -610,38 +592,6 @@ test('chooser success requires complete setup and an accepted revision', async (
 })
 
 
-test('flat managed entries form stable nested directories including a managed root index', () => {
-  const f = fixture(), records = [
-    { path: 'topics/topic_alpha/docs/architecture.md', kind: 'document', title: 'Architecture', revision: 'a' },
-    { path: 'sessions/session_beta/checkpoints/cp_one.md', kind: 'checkpoint', title: 'Checkpoint', revision: 'b' },
-    { path: 'topics/topic_alpha/OVERVIEW.md', kind: 'topic', title: 'Alpha', revision: 'c' },
-    { path: 'INDEX.md', kind: 'index', title: 'Library index', revision: 'd' },
-  ]
-  const tree = plain(f.main.buildTree(records))
-  assert.deepEqual(tree.map(node => [node.name, node.kind]), [['sessions', 'directory'], ['topics', 'directory'], ['INDEX.md', 'file']])
-  const alpha = tree[1].children[0]
-  assert.equal(alpha.path, 'topics/topic_alpha')
-  assert.deepEqual(alpha.children.map(node => node.name), ['docs', 'OVERVIEW.md'])
-  assert.deepEqual(alpha.children[0].children[0], { path: records[0].path, name: 'architecture.md', kind: 'file', title: 'Architecture', recordKind: 'document', revision: 'a' })
-  assert.deepEqual(plain(f.main.buildTree([...records].reverse())), tree)
-  assert.equal(records[0].children, undefined, 'constructing a tree does not mutate its source')
-  f.dispose()
-})
-
-test('tree rejects unsafe paths and bounds titles, depth, records and duplicate leaves', () => {
-  const f = fixture()
-  const invalid = ['../INDEX.md', '/INDEX.md', '.ctxkit/jobs/job.md', 'topics//x.md', 'topics/../x.md', 'topics/a/../../x.md', 'secrets/data.md', 'topics/a/file.html', 'topics/a/file.md/evil.md', 'topics/' + 'a/'.repeat(22) + 'b.md']
-  assert.deepEqual(plain(f.main.buildTree(invalid.map(path => ({ path })))), [])
-  const duplicate = f.main.buildTree([{ path: 'INDEX.md', title: 'x'.repeat(1000) }, { path: 'INDEX.md', title: 'ignored' }])
-  assert.equal(duplicate.length, 1); assert.equal(duplicate[0].title.length, 500)
-  const many = f.main.buildTree(Array.from({ length: 75 }, (_, i) => ({ path: 'topics/topic_a/doc_' + i + '.md' })))
-  assert.equal(many[0].children[0].children.length, 50)
-  assert.deepEqual(plain(f.main.buildTree(null)), [])
-  const safeKey = f.main.buildTree([{ path: 'topics/__proto__/OVERVIEW.md', title: '<script>inert title</script>' }])
-  assert.equal(safeKey[0].children[0].name, '__proto__')
-  assert.equal({}.polluted, undefined); assert.equal(f.calls.length, 0); f.dispose()
-})
-
 test('tree requests preserve the Host cursor and can read the managed INDEX through the same bridge', async () => {
   const f = fixture(), values = []
   const tree = { ok: true, configured: true, state: 'ready', action: 'tree', results: [{ path: 'INDEX.md', kind: 'index', title: 'Index', revision: 'a' }], offset: 0, limit: 50, total: 23, nextOffset: 1, truncated: true, readOnly: true, untrusted: true }
@@ -714,19 +664,28 @@ test('new user setup response is normal onboarding while denied and malformed re
   assert.ok(source.includes("body = h(Notice, { t, kind: 'unconfigured' })"))
 })
 
-test('file-first UI uses real disclosure controls, two views and visible scoped consent', () => {
-  assert.ok(source.includes("React.useState('files')"))
-  assert.ok(source.includes("['files', 'sessions'].map"))
-  assert.ok(source.includes("action: tab === 'files' ? 'tree' : 'sessions'"))
-  assert.ok(source.includes("'aria-expanded': opened")); assert.ok(source.includes("'aria-controls': group"))
-  assert.ok(source.includes("className: 'ck-tree-branch'")); assert.ok(source.includes('border-inline-start'))
-  assert.doesNotMatch(source, /role: 'tree'|\['topics', 'sessions', 'status'\]/)
-  assert.ok(source.includes("h(StorageAccess, { ...props, session, onStorage: setStorage })"))
-  assert.ok(source.includes('!canBrowseStorage(storage, session)'))
-  assert.ok(source.includes("className: 'ck-directory-pick'")); assert.ok(source.includes('border:2px dashed'))
-  assert.ok(source.includes("t('setupConsent')")); assert.ok(source.includes("t('setupWorkspace')"))
-  assert.ok(source.includes("t('storageUseExisting')")); assert.ok(source.includes('disabled: !sessionReady'))
-  assert.match(locales.zh.library.setupConsent, /额外模型调用/); assert.match(locales.zh.library.setupConsent, /不导入历史/)
-  assert.doesNotMatch(locales.zh.library.unconfiguredBody, /插件.*面板/)
-  assert.ok(source.includes("CTXKIT_CAPTURE_DISABLED: 'disabled'")); assert.ok(source.includes("CTXKIT_MODEL_UNAVAILABLE: 'modelUnavailable'"))
+test('folder-first UI delegates to the desktop instead of embedding a file manager', () => {
+  assert.match(source, /\['files', 'sessions'\]/)
+  assert.match(source, /className: 'ck-open-finder'/)
+  assert.match(source, /'setupConsent'/)
+  assert.match(source, /desktopCall\('pick', signal\)/)
+  assert.match(source, /desktopCall\('open', signal\)/)
+  assert.doesNotMatch(source, /ck-folder-list|h\(FileTree|picker\.list\(/)
+})
+
+test('Finder opens only the configured Host directory without sending a client path', async () => {
+  const f = fixture(), values = []
+  f.storage.startOpenFolder(value => values.push(value)); await tick()
+  assert.equal(values.at(-1).ok, true)
+  assert.deepEqual(plain(f.desktopCalls.map(([method, payload]) => [method, payload])), [['open', {}]])
+  assert.equal(f.settingsCalls.length, 0); assert.equal(f.calls.length, 0); f.dispose()
+})
+
+test('Finder cancellation aborts its transport and ignores a late success', async () => {
+  const f = fixture(), values = []; let finish
+  f.setOpen(() => new Promise(resolve => { finish = resolve }))
+  const cancel = f.storage.startOpenFolder(value => values.push(value)); await tick()
+  cancel(); assert.equal(f.desktopCalls[0][2].aborted, true)
+  finish({ ok: true, value: { opened: true } }); await tick()
+  assert.equal(values.length, 0); f.dispose()
 })

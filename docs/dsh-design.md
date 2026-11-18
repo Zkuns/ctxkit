@@ -90,6 +90,14 @@ DSH 侧栏“上下文库”打开原生主区域页面，提供主题、会话�
 
 页面使用原生 slots、locale 和 theme；切换当前会话、工作区、权限和连接配置时丢弃旧结果。未启用、空库、无匹配、拒绝和失败必须明确区分。第一版为手动刷新快照、安全纯文本正文和受管理的来源/关系导航，不提供任意 HTML/链接执行、编辑或权限提升。
 
+## 0.6 原生目录窗口与 Finder
+
+本轮用户确认浏览器和 DSH 在同一台 Mac。资料页点击目录按钮直接打开 macOS 系统选择窗口，不先列举文件夹，不使用浏览器上传目录冒充后台可写绝对路径。原生确认后沿用五字段原子接入；取消不保存。主界面移除文件树，提供“在 Finder 中打开”，Sessions 搜索保留。
+
+浏览器通过同源 api/ctxkit-desktop/{pick,open} exact Fetch 入口调用，沿用 Connection 的 owner-only 门槛并额外拒绝 Authorization 头；不更改反向代理或新增服务器。路由内继续检查 browserPeer、owner、可写 Settings 与显式 global settings/update allow；不作为 agent command/tool，也不额外注册独立 RPC 或 WebServer 路由。选择器复用 DSH 官方 pickNativeDirectory，Finder 使用无 shell 的官方 runner，固定 open -a Finder，目标只能来自 Host 当前 root，客户端不接受路径参数。不修改 DSH 全局 directoryPicker。请求、连接与卸载取消会传到 native helper，选择器同一时刻只允许一个；失败不泄露进程 stderr，不声明保存成功。
+
+默认 macOS-only；远程另一台电脑和无桌面场景不冒充支持。0.5 的有界 tree 查询仍保留给读取工具，但不再呈现网页文件浏览器。
+
 ## 0.5 资料页接入与文件树
 
 直接在 Context Library 中显示“选择目录”入口，确认宿主已有目录后，原生 Settings 在一次带 revision 的更新中保存 root、enabled:true、allowedWorkspaces:[当前 cwd]、useSessionModel:true、exactWorkspaces:true。确认前显示当前工作目录与额外模型调用说明；没有独立的路径配置表单、第二个保存按钮或另行手填模型的步骤。已有旧版目录也能通过“使用此目录”完成接入。插件面板只引导到资料页。

@@ -1,5 +1,21 @@
 # DSH MVP 验证记录
 
+## 0.6：系统目录窗口与 Finder
+
+日期：2026-11-17～18；目标 DSH `0.2.2-rc.3`。最终版本 `0.6.7`（运行代码与已实测的 0.6.6 相同，仅补充依赖脚本说明），169 项插件测试、28 项 Python 测试通过。
+
+- 用户确认浏览器与 DSH 在同一台 Mac。目录按钮改为调用官方 macOS 系统选择器，取消不保存；确认仍走既有五字段原子接入。移除网页目录列表和文件树，配置后提供“在 Finder 中打开”，Sessions 搜索保留。
+- Finder 仅使用 Host 当前 root，无客户端路径参数；固定 `open -a Finder`，不经 shell。目录、符号链接、配置变化、用户权限、请求与插件生命周期均有检查。原生模块异步加载后、实际调用前再次校验，配置更新会取消在途选择。
+- 增加原生依赖闭包：官方 native picker、native-command 和匹配版 Cordis；安装后的两个 helper 已验证能独立 import。没有批准或运行 Koffi 的安装脚本。
+- 浏览器使用同源 `api/ctxkit-desktop/pick`、`open`；Host 通过 Connection 的 exact Fetch 路由注册，保留其 owner-only 身份门槛，并额外拒绝 Authorization 请求头、非空或超限参数。插件继续检查可写 Settings 与显式 global settings/update 许可，不借此赋予 Agent 桌面权限。
+- 安装版原生 Connection 集成覆盖 exact API 路由、owner 与非 owner、Bearer 请求拒绝、参数边界和卸载移除；没有启动额外服务器。纯生命周期测试覆盖原生取消、重复请求、权限撤销与加载期间更换目录。原生窗口与 Finder 均使用 fake helper，不冒充真实桌面证据。
+- 早期实页出现 404。用户授权重启同一 DSH profile 后仍未消失；临时的仅自身插件生命周期诊断证明桌面子模块失败，具体错误为 `cannot get property "webServer" without inject`，而主插件仍显示 active。去掉多余的独立 RPC 注册，改为仅注册已有 Connection exact API 后，0.6.6 无需再次重启即正常响应。诊断模块已移除，不保留额外工具或接口。
+- 原生 Connection 回归测试现在刻意不提供 webServer，确保桌面动作只依赖共享 API，不再走错误的额外注册路径；动作逻辑与路由挂载分离。前端增加安全桌面错误码显示，并修复大写错误码分类。
+- `0.6.6`、最终 `0.6.7` 安装均 applied，最终 Host 入口、桌面动作与 Client 的安装哈希和源码一致。现有 GUI 刷新后可直接选择目录；真实 API 对带参数的探测返回 `CTXKIT_DESKTOP_ARGUMENTS`，不触发桌面动作。实际点击产生 HTTP 200 的系统选择请求，用户明确确认“看到了，已点取消”。页面返回未配置状态，目录按钮恢复可用，未出现目录路径，浏览器记录中 Settings 更新请求数量为零。
+- 真实 Finder API 在未选择目录时返回 `CTXKIT_DESKTOP_ROOT_UNAVAILABLE`，没有打开其他路径。生产 root、工作区范围和采集开关未由测试改写。
+
+**边界：** 系统弹窗及用户取消已完成真实验证。由于没有替用户配置生产目录，真实库的 Finder 按钮点击、目录确认后的生产保存和真实模型采集仍未验收；Finder 的已配置路径、权限、取消与边界由隔离后端测试覆盖，不能替代实际 Finder 窗口证据。
+
 ## 0.5：资料页直接接入、文件树与 Sessions
 
 日期：2026-11-17；目标 DSH `0.2.2-rc.3`。**150/150 项插件测试、28/28 项 Python 测试通过**，无 skipped；五个 skills、30 份 Markdown 校验通过。

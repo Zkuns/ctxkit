@@ -1,6 +1,7 @@
 import { Engine } from './engine.js'
 import { createAdapter } from './adapter.js'
 import { registerBrowser } from './browser-host.js'
+import { installDesktopActions } from './desktop-host.js'
 import { Config, snapshotConfig, validateStorageConfig } from './config.js'
 
 export { Config }
@@ -19,6 +20,24 @@ export function apply(ctx, config = {}) {
   })
   const settings = ctx.inject(['settings'], child => {
     child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
+  const desktop = ctx.inject(['connection', 'settings', 'remoteAccess'], child => {
+    child.effect(() => installDesktopActions(child, {
+      getConfig: () => snapshotConfig(config),
+      pickDirectory: async (signal, check) => {
+        const { pickNativeDirectory } = await import('@deepseek-ai/dsh-host-directory-picker-native')
+        signal.throwIfAborted()
+        check()
+        return pickNativeDirectory(signal)
+      },
+      openDirectory: async (path, signal, check) => {
+        const { runNativeCommand } = await import('@deepseek-ai/dsh-native-command')
+        signal.throwIfAborted()
+        check()
+        // Explicit Finder, not the directory's extension-based application association.
+        await runNativeCommand('open', ['-a', 'Finder', path], signal, 'hidden')
+      },
+    }))
   })
   ctx.effect(() => {
     let adapter, commandContext, closeBrowser = () => {}, stopped = false
@@ -61,6 +80,7 @@ export function apply(ctx, config = {}) {
       adapter?.dispose()
       browser.dispose()
       settings.dispose()
+      desktop.dispose()
     }
   })
 }

@@ -12,8 +12,9 @@ plugins/dsh/
 ├── config.js             # 原生 volatile 配置及目录校验
 ├── adapter.js            # 原生事件、模型、权限、工具与 skill 接入
 ├── library.js            # UI/Agent 共用的有界只读查询
+├── desktop-host.js       # 仅 browser owner 的共享 API 桌面动作与取消生命周期
 ├── browser-host.js       # 原生 session command 桥接与可信会话绑定
-├── client.js             # 资料页选目录接入、文件树与 Sessions（lazy-factory artifact）
+├── client.js             # 系统目录选择、Finder 打开与 Sessions（lazy-factory artifact）
 ├── contracts.js          # 有界输入和方案校验
 ├── engine.js             # capture / organize / recover 状态机
 ├── vault.js              # Markdown、CAS、journal 与关键词检索
