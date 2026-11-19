@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "CtxKit context library",
-    "description": "Retain topics, session progress and explicit user preferences in Markdown."
+    "description": "Retain topics, session progress, user habits and separate shared global state."
   },
   "library": {
     "title": "Context library",

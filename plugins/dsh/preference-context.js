@@ -1,28 +1,13 @@
-import { constants, openSync, closeSync, fstatSync, readSync } from 'node:fs'
-import { decode, fail, redact, LIMITS } from './contracts.js'
+import { redact } from './contracts.js'
+import { readContextDocument, serializeContext as serialize } from './record-context.js'
 import { PREFERENCES_PATH, readPreferences } from './preferences.js'
 
 // PromptContext providers are synchronous in DSH 0.2.2. Read one bounded file,
 // not the library or session history. DSH logs the resulting user-role snapshot.
 export function preferenceContext(scope, session, signal) {
-  const check = () => { signal?.throwIfAborted(); scope.sessionScope(session); return scope.target(PREFERENCES_PATH) }
-  const path = check()
-  let fd
-  try { fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK) }
-  catch (error) { if (error.code === 'ENOENT') return ''; throw error }
-  let raw
-  try {
-    const stat = fstatSync(fd)
-    if (!stat.isFile() || stat.size > LIMITS.fileBytes) fail('TOO_LARGE', 'User preferences exceed the context read limit')
-    const buffer = Buffer.alloc(LIMITS.fileBytes + 1)
-    let length = 0, read
-    while (length < buffer.length && (read = readSync(fd, buffer, length, buffer.length - length, length)) > 0) length += read
-    if (length > LIMITS.fileBytes) fail('TOO_LARGE', 'User preferences exceed the context read limit')
-    raw = buffer.subarray(0, length).toString('utf8')
-  } finally { closeSync(fd) }
-  check()
-  const document = decode(raw, PREFERENCES_PATH), entries = readPreferences(document)
-  const serialize = value => JSON.stringify(value).replaceAll('<', '\\u003c').replaceAll('>', '\\u003e')
+  const document = readContextDocument(scope, session, signal, PREFERENCES_PATH)
+  if (!document) return ''
+  const entries = readPreferences(document)
   const preferences = []
   const snapshot = { path: PREFERENCES_PATH, revision: document.revision, untrusted: true, preferences, retiredPreferenceIds: document.metadata.tombstones.map(entry => entry.id), truncated: false }
   for (const entry of entries) {

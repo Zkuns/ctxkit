@@ -67,7 +67,7 @@ export function validateTurn(input) {
   return input
 }
 export function validateCapture(raw, input) {
-  object(raw, 'capture', ['meaningful', 'title', 'summary', 'next', 'facts', 'topicHints', 'preferences'])
+  object(raw, 'capture', ['meaningful', 'title', 'summary', 'next', 'facts', 'topicHints', 'preferences', 'globalState'])
   if (typeof raw.meaningful !== 'boolean') fail('INVALID', 'meaningful must be boolean')
   if (!raw.meaningful) return { meaningful: false }
   const out = { meaningful: true, title: text(raw.title, 'title', 180), summary: text(raw.summary, 'summary', 6000), next: text(raw.next, 'next', 3000, true) }

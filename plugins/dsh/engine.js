@@ -1,5 +1,6 @@
 import { Vault } from './vault.js'
 import { PREFERENCES_PATH, readPreferences, validatePreferenceChanges, preferenceChange } from './preferences.js'
+import { GLOBAL_STATE_PATH, readGlobalState, validateGlobalChanges, globalStateChange } from './global-state.js'
 import { CAPTURE_SYSTEM, ORGANIZE_SYSTEM } from './prompts.js'
 import { checkpointKey, sessionKey, validateTurn, validateCapture, validatePlan, parseJSON, redact, safeError, fail, hash, encode } from './contracts.js'
 
@@ -103,22 +104,25 @@ export class Engine {
         const previous = existing?.body.slice(0, 6000) || ''
         const profile = await this.vault.maybeRead(PREFERENCES_PATH)
         const userPreferences = readPreferences(profile)
+        const shared = await this.vault.maybeRead(GLOBAL_STATE_PATH)
+        const globalState = readGlobalState(shared).map(({ id, category, text, evidence, observedAt }) => ({ id, category, text, evidence, observedAt }))
         const userSources = input.userSources ?? []
         const raw = await this.invoke('ctxkit.capture', CAPTURE_SYSTEM, {
           source: { sessionId: job.sessionId, turn: job.turn, fromSeq: job.fromSeq, toSeq: job.toSeq },
           allowedSourceSeqs: input.sourceSeqs || job.sourceSeqs || [], previousSessionOverview: previous, text: input.text,
-          userSources, userPreferences,
+          userSources, userPreferences, currentGlobalState: globalState, retiredGlobalIds: shared?.metadata.tombstones.map(entry => entry.id) ?? [],
         }, context)
-        const preferences = validatePreferenceChanges(raw.preferences, userSources)
+        const preferences = validatePreferenceChanges(raw?.preferences, userSources)
         const capture = validateCapture(raw, { ...job, sourceSeqs: input.sourceSeqs || job.sourceSeqs })
-        if (preferences.length && !capture.meaningful) fail('INVALID', 'Preference changes require a sourced checkpoint')
+        const globalChanges = validateGlobalChanges(raw.globalState, capture.facts ?? [])
+        if ((preferences.length || globalChanges.length) && !capture.meaningful) fail('INVALID', 'Root record changes require a sourced checkpoint')
         await this.assertActive(job, context)
         if (!capture.meaningful) {
           job.status = 'skipped'
           await this.saveJob(job, context)
           return { id: job.id, status: job.status }
         }
-        await this.capture(job, capture, context, profile, preferences)
+        await this.capture(job, capture, context, { profile, preferences, shared, globalChanges })
         job.status = 'captured'; job.checkpointPath = stagePath(job)
         await this.saveJob(job, context)
         checkpoint = await this.vault.read(stagePath(job))
@@ -142,13 +146,14 @@ export class Engine {
       return { id: job.id, status: job.status, error: job.error }
     }
   }
-  async capture(job, capture, context, profile = null, preferences = []) {
+  async capture(job, capture, context, { profile = null, preferences = [], shared = null, globalChanges = [] } = {}) {
     const body = `# ${capture.title}\n\n${capture.summary}\n\n## Evidence\n\n` + capture.facts.map(f => `- **${f.kind} / ${f.evidence}** — ${f.text}\n  Source events: ${f.sourceSeqs.join(', ')}`).join('\n\n')
     const metadata = { kind: 'checkpoint', id: job.id, title: capture.title, sessionId: job.sessionId, source: { platform: 'dsh', sessionId: job.sessionId, turn: job.turn, fromSeq: job.fromSeq, toSeq: job.toSeq, sourceSeqs: job.sourceSeqs }, createdAt: this.now(), topicHints: capture.topicHints, next: capture.next, organized: false, topics: [] }
     const checkpoint = { path: stagePath(job), metadata, body, expectedRevision: null }
     const session = await this.sessionChange(job, { path: checkpoint.path, metadata, body }, [])
     const change = preferenceChange(profile, preferences, { source: checkpoint.path, observedAt: job.createdAt, updatedAt: this.now() })
-    await this.vault.commit([checkpoint, session, ...(change ? [change] : [])], context, { sessionId: job.sessionId })
+    const globalChange = globalStateChange(shared, globalChanges, { source: checkpoint.path, observedAt: job.createdAt, updatedAt: this.now() })
+    await this.vault.commit([checkpoint, session, ...[change, globalChange].filter(Boolean)], context, { sessionId: job.sessionId })
   }
   async sessionChange(job, newest, assignedTopics) {
     const path = `sessions/${sessionKey(job.sessionId)}/SESSION.md`

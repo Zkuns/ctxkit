@@ -3,7 +3,7 @@ import { redact, relativePath, sessionKey } from './contracts.js'
 // One operation for native UI commands and agent tools. No capture, model, or writer API.
 export const LIBRARY_MAX_BYTES = 24000
 const ACTIONS = new Set(['overview', 'tree', 'topics', 'sessions', 'status', 'read', 'recall'])
-const KINDS = new Set(['index', 'topic', 'session', 'checkpoint', 'document', 'skill-draft', 'user-preferences'])
+const KINDS = new Set(['index', 'topic', 'session', 'checkpoint', 'document', 'skill-draft', 'user-preferences', 'global-state'])
 const JOB_STATES = new Set(['queued', 'capturing', 'captured', 'organizing', 'done', 'skipped', 'error', 'waiting_source', 'paused'])
 const TOPIC = /^topic_[a-z0-9][a-z0-9_-]{0,63}$/
 const CODE = /^(?:CTXKIT_[A-Z0-9_]+|INVALID|PATH|ROOT|SYMLINK|NOT_FOUND|UNMANAGED|SCHEMA|CORRUPT|TOO_LARGE|PAUSED|PERMISSION|CONFLICT|BUSY|RECOVERY_REQUIRED)$/
@@ -15,7 +15,7 @@ const codeOf = value => typeof value === 'string' && CODE.test(value) && value.l
 
 function managedPath(value) {
   relativePath(value)
-  if (!/^(?:INDEX\.md|USER\.md|topics\/topic_[a-z0-9][a-z0-9_-]{0,63}\/(?:OVERVIEW\.md|docs\/[a-z0-9][a-z0-9/_-]*\.md|skills\/[a-z0-9][a-z0-9_-]*\/SKILL\.md)|sessions\/session_[a-z0-9_-]+\/(?:SESSION\.md|checkpoints\/cp_[a-z0-9_-]+\.md))$/.test(value)) throw error('CTXKIT_PATH_DENIED')
+  if (!/^(?:INDEX\.md|USER\.md|GLOBAL\.md|topics\/topic_[a-z0-9][a-z0-9_-]{0,63}\/(?:OVERVIEW\.md|docs\/[a-z0-9][a-z0-9/_-]*\.md|skills\/[a-z0-9][a-z0-9_-]*\/SKILL\.md)|sessions\/session_[a-z0-9_-]+\/(?:SESSION\.md|checkpoints\/cp_[a-z0-9_-]+\.md))$/.test(value)) throw error('CTXKIT_PATH_DENIED')
   return value
 }
 function safePath(value) { try { return managedPath(value) } catch { return undefined } }

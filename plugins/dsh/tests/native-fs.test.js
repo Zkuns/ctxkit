@@ -60,6 +60,7 @@ test('real installed DSH sandbox filesystem publishes the full core pipeline wit
   const engine = new Engine({ root, authorize: scope.authorize, publishText: publisher, generate: async ({ purpose }) => JSON.stringify(purpose === 'ctxkit.capture' ? {
     meaningful: true, title: 'Synthetic verification', summary: 'Local synthetic checks passed; deployment did not occur.', next: 'Review prerequisites.', topicHints: ['Atlas'],
     preferences: [{ id: 'pref_response_format', action: 'set', text: 'Prefer concise bullets.', sourceSeq: 1, quote: 'Prefer concise bullets in future tasks.' }],
+    globalState: [{ id: 'global_shared_checks', action: 'set', category: 'fact', text: 'Shared synthetic checks passed.', factIndexes: [0] }],
     facts: [{ text: 'Synthetic local checks passed.', kind: 'result', evidence: 'observed', sourceSeqs: [2] }],
   } : { topics: [{ id: 'topic_atlas', title: 'Atlas', aliases: [], scope: 'Fictional example', body: '# Atlas\n\nLocal checks passed; no deployment.', expectedRevision: null }], documents: [], relations: [], note: '' }) })
   t.after(async () => { engine.dispose(); await engine.queue })
@@ -68,6 +69,9 @@ test('real installed DSH sandbox filesystem publishes the full core pipeline wit
   const preferences = await engine.vault.read('USER.md')
   assert.equal(preferences.metadata.kind, 'user-preferences')
   assert.match(preferences.body, /Prefer concise bullets/)
+  const shared = await engine.vault.read('GLOBAL.md')
+  assert.equal(shared.metadata.kind, 'global-state')
+  assert.match(shared.body, /Shared synthetic checks passed/)
   const doc = await engine.vault.read('topics/topic_atlas/OVERVIEW.md')
   assert.equal(doc.metadata.id, 'topic_atlas')
   await assert.rejects(publisher({ relativePath: doc.path, text: 'stale overwrite', context: { session }, expectedRevision: null }), /REVISION_CONFLICT/)
@@ -76,5 +80,6 @@ test('real installed DSH sandbox filesystem publishes the full core pipeline wit
   await assert.rejects(engine.enqueueTurn(next), /READ_ONLY/)
   assert.equal((await engine.vault.read(doc.path)).revision, doc.revision)
   assert.equal((await engine.vault.read('USER.md')).revision, preferences.revision)
+  assert.equal((await engine.vault.read('GLOBAL.md')).revision, shared.revision)
   mode = 'workspace-write'
 })

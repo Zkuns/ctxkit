@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "CtxKit 上下文库",
-    "description": "自动整理主题、会话进度与明确表达的全局用户偏好。"
+    "description": "自动整理主题、会话进度、用户习惯与独立的全局共享状态。"
   },
   "library": {
     "title": "上下文库",

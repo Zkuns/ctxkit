@@ -12,6 +12,7 @@ A topic is not necessarily a code project. It may be a product, an ongoing activ
 context/
 ├── INDEX.md
 ├── USER.md
+├── GLOBAL.md
 ├── topics/topic_atlas/
 │   ├── OVERVIEW.md
 │   ├── docs/
@@ -24,6 +25,8 @@ context/
 ```
 
 USER.md records explicit cross-task user preferences, shared only within authorized access to the same library. A bounded historical-data snapshot is supplied automatically; it is not execution permission or a replacement for current instructions. The file is created on the first explicit preference. Natural-language corrections and removals update current defaults, not historical checkpoints.
+
+GLOBAL.md separately records shared last-known facts, conventions, decisions and open issues. Evidence labels and recording times remain visible; this is not a live status check. It is created on the first sourced global update, without importing old history.
 
 The overview is a task-oriented index. Documents explain current knowledge, decisions, constraints and evidence. Topic skills are inert procedure drafts, not installed capabilities or execution permission. Session records explain what happened and where work stopped; their checkpoints provide sources for topic updates. One session can contribute to multiple topics.
 
@@ -41,7 +44,7 @@ The first version provides automatic checkpoint extraction, topic/document organ
 
 **Users need not mention CtxKit or ask to search memory.** The agent can proactively retrieve relevant prior work when a normal task depends on history. For manual browsing, open **Context Library** in the DSH sidebar: use **Open in Finder** to view and manage Markdown files, or search captured session dossiers in the separate **Sessions** tab.
 
-This is a **0.7 MVP**, providing native folder-based onboarding, direct Finder access, separate session search and a direct proactive-recall tool. Completed turns remain candidate checkpoints, with no shutdown-save guarantee. Retrieval is lexical; deciding when to recall and judging historical claims still require model judgment and current evidence. See the [full plugin guide](plugins/dsh/docs/TECHNICAL.md) for capture authorization and limits.
+This is a **0.8 MVP**, providing native folder-based onboarding, direct Finder access, separate session search and a direct proactive-recall tool. Completed turns remain candidate checkpoints, with no shutdown-save guarantee. Retrieval is lexical; deciding when to recall and judging historical claims still require model judgment and current evidence. See the [full plugin guide](plugins/dsh/docs/TECHNICAL.md) for capture authorization and limits.
 
 ## Development
 

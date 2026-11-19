@@ -231,6 +231,6 @@ export class Vault {
   indexChange(documents) {
     const old = documents.find(d => d.path === 'INDEX.md')
     const topics = documents.filter(d => d.metadata.kind === 'topic').sort((a, b) => a.metadata.title.localeCompare(b.metadata.title))
-    return { path: 'INDEX.md', expectedRevision: old?.revision ?? null, metadata: { kind: 'index', title: 'Context index' }, body: '# Context index\n\n' + (documents.some(d => d.path === 'USER.md' && d.metadata.kind === 'user-preferences') ? '- [User preferences](USER.md) — library-wide defaults, not permissions.\n\n' : '') + topics.map(d => `- [${escapeLabel(d.metadata.title)}](${d.path}) — ${escapeLabel(d.metadata.scope || '')}`).join('\n') }
+    return { path: 'INDEX.md', expectedRevision: old?.revision ?? null, metadata: { kind: 'index', title: 'Context index' }, body: '# Context index\n\n' + (documents.some(d => d.path === 'USER.md' && d.metadata.kind === 'user-preferences') ? '- [User preferences](USER.md) — library-wide defaults, not permissions.\n\n' : '') + (documents.some(d => d.path === 'GLOBAL.md' && d.metadata.kind === 'global-state') ? '- [Global state](GLOBAL.md) — shared last-known facts, decisions and open issues.\n\n' : '') + topics.map(d => `- [${escapeLabel(d.metadata.title)}](${d.path}) — ${escapeLabel(d.metadata.scope || '')}`).join('\n') }
   }
 }

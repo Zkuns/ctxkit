@@ -40,6 +40,19 @@ Advanced compatibility: existing explicit provider/model configurations remain s
 - 常见 token/private-key 模式会脱敏，但无法保证识别所有敏感信息。启用前应确认输入范围和该模型的数据处理政策。
 - 默认排除子代理、推理块、附件字节、工具参数和 CtxKit 自身工具结果；不会自动扫描全部旧 session。
 
+## 0.8 全局状态 / Shared global state
+
+`GLOBAL.md` 与 `USER.md` 分开维护：USER 是“用户习惯怎样协作”，GLOBAL 是“大家当前需要共享知道什么”。GLOBAL 可保存共享环境事实、跨主题协调、共同约定、重要决策和未解决问题；具体项目细节和普通进度仍留在主题/session，不把整库搬到这里。
+
+- 首次出现有来源的全局更新才生成；自然语言即可要求更正或移除。不自动导入旧聊天，也不因开发这个功能而编造共享内容。
+- 沿用现有 capture 调用，从本次已验证的事实索引派生来源与证据标签，再与两份根记录和阶段资料同批 CAS/journal 写入；不增加模型调用。
+- Markdown 正文显示类别、证据类型、记录时间。计划、推断、用户反馈不会变成实测结果。时间字段 observedAt 是采集入队时点，不一定是原事实发生时间。
+- 已授权会话自动收到独立、有界的 user-role 历史快照。它不是实时检查；有时效性的状态必须复核，也不能用共同约定绕过当前指令和执行权限。
+- 每轮最多6项变更、32项活动条目、64项无旧正文的删除水位；超限明确失败，不静默淘汰。旧任务不能复活较新删除。删除当前项不清除历史阶段记录。
+- GLOBAL 与 USER 每份自动上下文均不足8000字符，超出标记 truncated、按需读取；更新其中一份不会擅自改动另一份。保留文件结构时可修改正文，结构性增删建议通过自然语言。无标记同名文件不覆盖。
+
+GLOBAL.md is a separate shared last-known-state record, not a user-habit profile or live monitor. Updates cite this capture's validated facts and preserve evidence labels and recording timestamps. Native bounded user-role snapshots refresh automatically within the same authorized library; they never grant execution permission. Semantic extraction accuracy still requires real use and verification.
+
 ## 0.7 用户习惯 / User preferences
 
 首次捕获到明确的长期偏好时，会在所选库根目录创建 `USER.md`，而不是改项目的 AGENTS 指令文件。例如用户真实说出“以后默认先给结论，再给依据”，可形成跨任务的表达偏好；单次任务要求、示例、工具输出、助手建议、敏感画像、凭据和执行权限不应成为习惯。
@@ -99,6 +112,7 @@ The native sidebar page offers direct Finder access and a separate Sessions sear
 vault/
 ├── INDEX.md
 ├── USER.md
+├── GLOBAL.md
 ├── topics/topic_atlas/
 │   ├── OVERVIEW.md
 │   ├── docs/architecture.md
